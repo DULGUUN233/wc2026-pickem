@@ -33,6 +33,7 @@ async function request(method, path, body) {
 
 export const api = {
   auth: (nickname) => request('POST', '/auth', { nickname }),
+  usionAuth: (usionId, name, avatar) => request('POST', '/auth/usion', { usionId, name, avatar }),
   me: () => request('GET', '/me'),
   groups: () => request('GET', '/groups'),
   getPicks: () => request('GET', '/picks'),

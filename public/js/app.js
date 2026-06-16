@@ -40,12 +40,46 @@ async function init() {
   try { state.cfg = await api.groups(); }
   catch { toast('Серверт холбогдож чадсангүй', 'err'); return; }
 
-  if (getToken()) { try { state.player = (await api.me()).player; } catch { setToken(''); } }
-
   wire();
+
+  // 1) Usion mini-app дотор бол identity-г платформоос авна (nickname асуухгүй)
+  await tryUsionLogin();
+
+  // 2) Standalone (Usion-гүй) — хадгалсан сесс сэргээх
+  if (!state.player && getToken()) {
+    try { state.player = (await api.me()).player; } catch { setToken(''); }
+  }
+
   if (state.player) await afterLogin();
   renderPredict();
+
+  // 3) Usion-гүй, сессгүй бол нэр асууна
   if (!state.player) openNameModal();
+}
+
+// Usion SDK байвал init хүлээж, userId-аар нэвтэрнэ. Host-гүй бол чимээгүй буцна.
+function tryUsionLogin() {
+  return new Promise((resolve) => {
+    const U = window.Usion;
+    if (!U || typeof U.init !== 'function') return resolve();
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const timer = setTimeout(finish, 1500);
+    U.init(async () => {
+      clearTimeout(timer);
+      try {
+        const uid = U.user?.getId?.() || U.config?.userId;
+        const uname = U.user?.getName?.() || U.config?.userName || 'Тоглогч';
+        const avatar = U.user?.getAvatar?.() || U.config?.userAvatar || null;
+        if (uid) {
+          const { player, token } = await api.usionAuth(uid, uname, avatar);
+          setToken(token);
+          state.player = player;
+        }
+      } catch { /* алдвал nickname горимд унана */ }
+      finish();
+    });
+  });
 }
 
 async function afterLogin() {

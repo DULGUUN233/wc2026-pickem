@@ -83,6 +83,33 @@ router.post(
   })
 );
 
+// Usion (mini-app) identity-аар нэвтрэх — usionId-аар тоглогч олох/үүсгэх
+async function uniqueNickname(base, usionId) {
+  const tries = [base, `${base.slice(0, 19)} ${usionId.slice(-4)}`, `${base.slice(0, 14)} ${usionId.slice(-8)}`];
+  for (const c of tries) {
+    if (!(await collections.players().findOne({ nicknameLower: c.toLowerCase() }))) return c;
+  }
+  return `${base.slice(0, 16)} ${String(Date.now()).slice(-5)}`;
+}
+
+router.post(
+  '/auth/usion',
+  asyncHandler(async (req, res) => {
+    const usionId = String(req.body?.usionId || '').trim();
+    if (!usionId) throw new HttpError(400, 'usionId шаардлагатай');
+    const existing = await collections.players().findOne({ usionId });
+    if (existing) return res.json({ player: publicPlayer(existing), token: existing.token });
+    let base = normalizeNickname(req.body?.name) || 'Тоглогч';
+    if (base.length > 24) base = base.slice(0, 24);
+    if (base.length < 2) base = 'Тоглогч';
+    const nickname = await uniqueNickname(base, usionId);
+    const token = randomToken();
+    const doc = { usionId, nickname, nicknameLower: nickname.toLowerCase(), token, avatar: req.body?.avatar || null, createdAt: new Date() };
+    const { insertedId } = await collections.players().insertOne(doc);
+    res.json({ player: { id: String(insertedId), nickname }, token });
+  })
+);
+
 router.get(
   '/me',
   asyncHandler(async (req, res) => {

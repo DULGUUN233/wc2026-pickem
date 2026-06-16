@@ -45,6 +45,7 @@ export async function connectDb() {
 async function ensureIndexes(db) {
   await db.collection('players').createIndex({ nicknameLower: 1 }, { unique: true });
   await db.collection('players').createIndex({ token: 1 }, { unique: true });
+  await db.collection('players').createIndex({ usionId: 1 }, { unique: true, sparse: true });
   await db.collection('picks').createIndex({ playerId: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ code: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ memberIds: 1 });
