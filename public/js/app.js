@@ -200,38 +200,38 @@ async function savePicks() {
 async function loadLeagues() {
   $('#leagueHub').hidden = false;
   $('#leagueDetail').hidden = true;
-  await Promise.all([loadMyLeagues(), loadGlobalBoard()]);
+  await loadMyLeagues();
 }
 
 async function loadMyLeagues() {
   const wrap = $('#myLeagues');
   if (!state.player) { wrap.innerHTML = '<div class="empty">Эхлээд Таамаг хэсэгт нэрээ оруул.</div>'; return; }
-  try { state.myLeagues = (await api.myLeagues()).leagues; } catch { state.myLeagues = []; }
-  if (!state.myLeagues.length) { wrap.innerHTML = '<div class="empty">Лиг алга. Шинээр үүсгэ эсвэл кодоор нэгд.</div>'; return; }
+  wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  let leagues = [], global = null;
+  try { leagues = (await api.myLeagues()).leagues; } catch {}
+  try { global = await api.leaderboard(); } catch {}
+  state.myLeagues = leagues;
   wrap.innerHTML = '';
-  for (const l of state.myLeagues) {
-    const d = el('div', 'league-item');
-    d.innerHTML = `
-      <div class="l-rank">${l.myRank ? '#' + l.myRank : '–'}</div>
-      <div class="l-main">
-        <div class="l-name">${l.name}${l.owner ? ' 👑' : ''}</div>
-        <div class="l-meta"><span class="code-badge">${l.code}</span><span>${l.memberCount} гишүүн</span></div>
-      </div>
-      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
-    d.querySelector('.code-badge').addEventListener('click', (e) => { e.stopPropagation(); copyCode(l.code); });
-    d.addEventListener('click', () => showLeagueDetail(l.code, l.name));
-    wrap.appendChild(d);
+  for (const l of leagues) wrap.appendChild(leagueCard({ name: l.name, code: l.code, rank: l.myRank, count: l.memberCount, owner: l.owner }));
+  if (global) {
+    const myRow = state.player && global.players.find((p) => p.playerId === state.player.id);
+    wrap.appendChild(leagueCard({ name: 'Бүх тоглогч', rank: myRow ? myRow.rank : null, count: global.players.length, special: true }));
   }
 }
 
-async function loadGlobalBoard() {
-  const board = $('#globalBoard');
-  board.innerHTML = '<div class="empty">Уншиж байна…</div>';
-  try {
-    const data = await api.leaderboard();
-    $('#globalMeta').textContent = `${data.players.length} тоглогч · ${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн`;
-    renderBoard(board, data.players);
-  } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
+function leagueCard(o) {
+  const d = el('div', 'league-item' + (o.special ? ' special' : ''));
+  const meta = (o.special ? '' : `<span class="code-badge">${o.code}</span>`) + `<span>${o.count} ${o.special ? 'тоглогч' : 'гишүүн'}</span>`;
+  d.innerHTML = `
+    <div class="l-rank">${o.rank ? '#' + o.rank : '–'}</div>
+    <div class="l-main">
+      <div class="l-name">${o.special ? '🌍 ' : ''}${o.name}${o.owner ? ' 👑' : ''}</div>
+      <div class="l-meta">${meta}</div>
+    </div>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+  if (!o.special) d.querySelector('.code-badge').addEventListener('click', (e) => { e.stopPropagation(); copyCode(o.code); });
+  d.addEventListener('click', () => showLeagueDetail(o.special ? '' : o.code, o.name));
+  return d;
 }
 
 async function showLeagueDetail(code, name) {
@@ -241,8 +241,10 @@ async function showLeagueDetail(code, name) {
   $('#ldMeta').textContent = 'Уншиж байна…';
   const board = $('#ldBoard'); board.innerHTML = '';
   try {
-    const data = await api.leaderboard(code);
-    $('#ldMeta').textContent = `Код ${code} · ${data.players.length} гишүүн · ${data.scoredGroups}/${data.totalGroups} групп`;
+    const data = await api.leaderboard(code || '');
+    $('#ldMeta').textContent = code
+      ? `Код ${code} · ${data.players.length} гишүүн · ${data.scoredGroups}/${data.totalGroups} групп`
+      : `${data.players.length} тоглогч · ${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн`;
     renderBoard(board, data.players);
   } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }

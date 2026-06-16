@@ -220,6 +220,7 @@ img{display:block}
 .league-item .l-name{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .league-item .l-meta{font-size:12px;color:var(--text-2);margin-top:3px;display:flex;gap:9px;align-items:center}
 .league-item .chev{width:20px;height:20px;color:var(--text-3);flex-shrink:0}
+.league-item.special .l-rank{background:linear-gradient(135deg,#F4C13B,var(--gold))}
 .code-badge{font-family:ui-monospace,monospace;font-weight:800;letter-spacing:.12em;color:var(--purple);
   background:#F3EEFE;padding:3px 9px;border-radius:7px;cursor:pointer}
 .ld-head{display:flex;align-items:center;gap:12px;margin:4px 2px 16px}
