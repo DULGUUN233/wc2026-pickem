@@ -316,7 +316,6 @@ function wire() {
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
   $('#boardScope').addEventListener('change', (e) => { state.boardScope = e.target.value; loadLeaderboard(); });
   $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
-  $('#logoMark').addEventListener('click', openAdmin);
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true)));
   if (location.hash === '#admin') openAdmin();
