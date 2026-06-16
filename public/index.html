@@ -2,24 +2,37 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>WC 2026 Pick'em</title>
   <meta name="description" content="World Cup 2026 групп шатны pick'em — найзуудтайгаа өрсөлд!" />
+  <meta name="theme-color" content="#6D28D9" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <!-- Header -->
-  <header class="header">
-    <div class="header-inner">
-      <div class="brand">
-        <span class="brand-cup">🏆</span>
-        <div>
-          <h1>WC 2026 PICK'EM</h1>
-          <div class="sub">Групп шатны таамаг</div>
-        </div>
-      </div>
+  <!-- ======================= HERO ======================= -->
+  <section id="screen-hero" class="hero">
+    <div class="hero-top"><span class="dot"></span> FIFA WORLD CUP 2026</div>
+    <div class="hero-mid">
+      <div class="hero-eyebrow">Групп шатны</div>
+      <h1 class="hero-title">Pick<em>'em</em></h1>
+      <p class="hero-sub">Групп бүрийн багуудыг 1–4 байраар эрэмбэл. Найзуудтайгаа лиг үүсгэн оноогоор өрсөлд.</p>
+    </div>
+    <div class="hero-cta">
+      <span class="hero-trophy">🏆</span>
+      <button id="startBtn" class="btn-start">
+        Эхлэх
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ======================= APP ======================= -->
+  <header class="appbar">
+    <div class="appbar-inner">
+      <div class="logo"><span class="mark" id="logoMark">26</span> WC Pick'em</div>
       <button id="playerChip" class="player-chip" hidden>
         <span class="avatar" id="playerAvatar">?</span>
         <span id="playerName">—</span>
@@ -31,71 +44,91 @@
     <!-- ===== Таамаг ===== -->
     <section id="screen-predict" class="screen">
       <div class="screen-head">
-        <div>
-          <h2>Таамаг</h2>
-          <p class="muted" id="predictHint">Групп бүрт багуудыг 1-4 байраар эрэмбэл.</p>
-        </div>
-        <div class="progress-pill"><span id="predictDone">0</span>/12 групп</div>
+        <h2>Таамаг</h2>
+        <div class="sub" id="predictHint">Багуудыг чирж 1–4 байраар эрэмбэл.</div>
       </div>
-      <div id="groupsGrid" class="groups-grid"></div>
-      <div class="save-bar">
-        <span class="save-info" id="saveInfo"></span>
-        <button id="savePicksBtn" class="btn btn-primary">Хадгалах</button>
+      <div class="predict-meta">
+        <div class="meter"><i id="meterFill" style="width:0%"></i></div>
+        <div class="count"><b id="predictDone">0</b>/12 эрэмбэлсэн</div>
       </div>
+      <div class="legend">
+        <span><i style="background:var(--adv)"></i>1–2 шууд гарна</span>
+        <span><i style="background:var(--play)"></i>3 playoff</span>
+        <span><i style="background:var(--out)"></i>4 хасагдана</span>
+      </div>
+      <div id="groups" class="groups"></div>
     </section>
 
     <!-- ===== Лиг ===== -->
     <section id="screen-leagues" class="screen" hidden>
-      <div class="screen-head"><h2>Лиг</h2></div>
-
+      <div class="screen-head"><h2>Лиг</h2><div class="sub">Найзуудтайгаа тусдаа өрсөлд.</div></div>
       <div class="card pad">
         <h3>Шинэ лиг үүсгэх</h3>
         <p class="muted">Лиг үүсгээд кодоо найзууддаа илгээ.</p>
         <div class="row">
-          <input id="leagueNameInput" class="input" placeholder="Лигийн нэр (ж: Манай анги)" maxlength="30" />
+          <input id="leagueNameInput" class="input" placeholder="Лигийн нэр" maxlength="30" />
           <button id="createLeagueBtn" class="btn btn-primary">Үүсгэх</button>
         </div>
       </div>
-
       <div class="card pad">
         <h3>Лигт нэгдэх</h3>
         <p class="muted">Найзаасаа авсан кодоо оруул.</p>
         <div class="row">
-          <input id="joinCodeInput" class="input mono" placeholder="КОД" maxlength="6" style="text-transform:uppercase" />
+          <input id="joinCodeInput" class="input mono" placeholder="КОД" maxlength="6" />
           <button id="joinLeagueBtn" class="btn">Нэгдэх</button>
         </div>
       </div>
-
       <h3 class="section-title">Миний лигүүд</h3>
       <div id="myLeagues" class="leagues-list"></div>
     </section>
 
-    <!-- ===== Самбар (Leaderboard) ===== -->
+    <!-- ===== Самбар ===== -->
     <section id="screen-leaderboard" class="screen" hidden>
-      <div class="screen-head">
-        <h2>Самбар</h2>
+      <div class="screen-head" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+        <div><h2>Самбар</h2><div class="sub" id="boardMeta"></div></div>
         <select id="boardScope" class="select"></select>
       </div>
-      <p class="muted" id="boardMeta"></p>
       <div id="leaderboard" class="board"></div>
     </section>
   </main>
 
-  <!-- Bottom nav -->
+  <!-- save bar (зөвхөн Таамаг дээр) -->
+  <div class="savebar" id="saveBar">
+    <div class="savebar-inner">
+      <button id="savePicksBtn" class="btn btn-accent btn-save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Хадгалах
+      </button>
+    </div>
+  </div>
+
+  <!-- bottom nav -->
   <nav class="bottom-nav">
-    <button class="nav-item active" data-screen="predict"><span class="nav-ico">⚽</span><span>Таамаг</span></button>
-    <button class="nav-item" data-screen="leagues"><span class="nav-ico">🛡️</span><span>Лиг</span></button>
-    <button class="nav-item" data-screen="leaderboard"><span class="nav-ico">📊</span><span>Самбар</span></button>
+    <div class="nav-inner">
+      <button class="nav-item active" data-screen="predict">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        Таамаг
+      </button>
+      <button class="nav-item" data-screen="leagues">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Лиг
+      </button>
+      <button class="nav-item" data-screen="leaderboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        Самбар
+      </button>
+    </div>
   </nav>
 
   <!-- Nickname modal -->
   <div id="nameModal" class="modal" hidden>
     <div class="modal-card">
-      <div class="modal-cup">🏆</div>
+      <div class="modal-grip"></div>
+      <div class="modal-mark">26</div>
       <h2>Тавтай морил!</h2>
       <p class="muted">Нэрээ оруулаад тоглож эхэл. Нууц үг хэрэггүй.</p>
-      <input id="nameInput" class="input" placeholder="Чиний нэр / nickname" maxlength="24" />
-      <button id="nameSubmit" class="btn btn-primary block">Эхлэх</button>
+      <input id="nameInput" class="input" placeholder="Чиний нэр / nickname" maxlength="24" autocomplete="off" />
+      <button id="nameSubmit" class="btn btn-accent block" style="margin-top:14px">Эхлэх</button>
       <p class="error" id="nameError" hidden></p>
     </div>
   </div>
@@ -103,16 +136,20 @@
   <!-- Admin modal -->
   <div id="adminModal" class="modal" hidden>
     <div class="modal-card wide">
-      <button class="modal-close" data-close="adminModal">✕</button>
-      <h2>Admin — жинхэнэ дүн</h2>
-      <p class="muted">Групп бүрийн эцсийн байрыг оруул. Оноо автоматаар тооцогдоно.</p>
-      <input id="adminKeyInput" class="input" placeholder="Admin түлхүүр" />
+      <button class="modal-close" data-close="adminModal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+      <div class="modal-grip"></div>
+      <h2 style="text-align:left">Admin — жинхэнэ дүн</h2>
+      <p class="muted" style="text-align:left">Групп бүрийн эцсийн байрыг оруул. Оноо автоматаар тооцогдоно.</p>
+      <input id="adminKeyInput" class="input" placeholder="Admin түлхүүр" style="margin-top:14px" />
       <div id="adminGroups" class="admin-groups"></div>
     </div>
   </div>
 
   <div id="toast" class="toast" hidden></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

@@ -3,479 +3,322 @@ import { api, getToken, setToken } from './api.js';
 /* ============================ STATE ============================ */
 const state = {
   player: null,
-  cfg: null, // /api/groups-ийн хариу
-  picks: {}, // { A:[id,id,id,id], ... }
+  cfg: null,
+  picks: {}, // { A:[id,...] } 0-4 урт; бүрэн = 4
+  savedPicks: {},
   myLeagues: [],
-  boardScope: '', // '' = global, эсвэл лигийн код
+  boardScope: '',
 };
 
-const $ = (sel) => document.querySelector(sel);
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 const draftKey = () => `wc2026:draft:${state.player?.id || 'anon'}`;
+const QUAL = ['q-adv', 'q-adv', 'q-play', 'q-out'];
+
+const ICON = {
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.45"/><circle cx="9" cy="12" r="1.45"/><circle cx="9" cy="18" r="1.45"/><circle cx="15" cy="6" r="1.45"/><circle cx="15" cy="12" r="1.45"/><circle cx="15" cy="18" r="1.45"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+};
 
 /* ============================ HELPERS ============================ */
 function toast(msg, kind = '') {
   const t = $('#toast');
-  t.textContent = msg;
-  t.className = 'toast ' + kind;
-  t.hidden = false;
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => (t.hidden = true), 2600);
+  t.textContent = msg; t.className = 'toast ' + kind; t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2600);
 }
-
-function flag(code) {
-  return `<img class="flag" src="${state.cfg.flagBase}${code}.png" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
-}
-function teamsOf(group) {
-  return state.cfg.groups[group];
-}
-function isGroupLocked(group) {
-  return !!state.cfg.results[group] || state.cfg.lock.globalLockPassed;
-}
-function saveDraft() {
-  try {
-    localStorage.setItem(draftKey(), JSON.stringify(state.picks));
-  } catch {}
-}
-function loadDraft() {
-  try {
-    return JSON.parse(localStorage.getItem(draftKey()) || '{}');
-  } catch {
-    return {};
-  }
-}
+const flagSrc = (code) => `${state.cfg.flagBase}${code}.png`;
+const teamsOf = (g) => state.cfg.groups[g];
+const teamById = (g, id) => state.cfg.groups[g].find((t) => t.id === id);
+const isLocked = (g) => !!state.cfg.results[g] || state.cfg.lock.globalLockPassed;
+const placedOf = (g) => state.picks[g] || [];
+const isComplete = (g) => placedOf(g).length === 4;
+function saveDraft() { try { localStorage.setItem(draftKey(), JSON.stringify(state.picks)); } catch {} }
+function loadDraft() { try { return JSON.parse(localStorage.getItem(draftKey()) || '{}'); } catch { return {}; } }
 
 /* ============================ INIT ============================ */
 async function init() {
-  try {
-    state.cfg = await api.groups();
-  } catch (e) {
-    toast('Серверт холбогдож чадсангүй', 'err');
-    return;
-  }
+  try { state.cfg = await api.groups(); }
+  catch { toast('Серверт холбогдож чадсангүй', 'err'); return; }
 
-  // Сесс сэргээх
-  if (getToken()) {
-    try {
-      const { player } = await api.me();
-      state.player = player;
-    } catch {
-      setToken('');
-    }
-  }
+  if (getToken()) { try { state.player = (await api.me()).player; } catch { setToken(''); } }
 
-  wireNav();
-  wireButtons();
-  $('#brandCupBind')?.addEventListener?.('click', () => {});
-
-  if (state.player) {
-    await afterLogin();
-  } else {
-    openNameModal();
-  }
+  wire();
+  if (state.player) await afterLogin();
   renderPredict();
 }
 
 async function afterLogin() {
   showPlayerChip();
-  // server picks + локал draft нэгтгэх
-  let serverPicks = {};
-  try {
-    serverPicks = (await api.getPicks()).picks || {};
-  } catch {}
-  const draft = loadDraft();
-  state.picks = { ...draft, ...serverPicks }; // дуусгасан (server) нь давамгайлна
-  // түгжигдсэн группүүдийн server утга заавал хэрэглэнэ
-  for (const g of state.cfg.groupIds) {
-    if (isGroupLocked(g) && serverPicks[g]) state.picks[g] = serverPicks[g];
-  }
+  try { state.savedPicks = (await api.getPicks()).picks || {}; } catch { state.savedPicks = {}; }
+  state.picks = { ...state.savedPicks, ...loadDraft() };
 }
 
 function showPlayerChip() {
-  const chip = $('#playerChip');
-  chip.hidden = false;
+  $('#playerChip').hidden = false;
   $('#playerName').textContent = state.player.nickname;
   $('#playerAvatar').textContent = state.player.nickname.charAt(0);
 }
 
-/* ============================ NAME MODAL ============================ */
-function openNameModal() {
-  $('#nameModal').hidden = false;
-  setTimeout(() => $('#nameInput').focus(), 100);
-}
+/* ============================ HERO / NAME ============================ */
+function startApp() { $('#screen-hero').hidden = true; if (!state.player) openNameModal(); }
+function openNameModal() { $('#nameModal').hidden = false; setTimeout(() => $('#nameInput').focus(), 120); }
 async function submitName() {
   const nickname = $('#nameInput').value.trim();
-  const errEl = $('#nameError');
-  errEl.hidden = true;
-  if (nickname.length < 2) {
-    errEl.textContent = 'Дор хаяж 2 тэмдэгт оруул';
-    errEl.hidden = false;
-    return;
-  }
+  const errEl = $('#nameError'); errEl.hidden = true;
+  if (nickname.length < 2) { errEl.textContent = 'Дор хаяж 2 тэмдэгт оруул'; errEl.hidden = false; return; }
   try {
     const { player, token } = await api.auth(nickname);
-    setToken(token);
-    state.player = player;
+    setToken(token); state.player = player;
     $('#nameModal').hidden = true;
-    await afterLogin();
-    renderPredict();
+    await afterLogin(); renderPredict();
     toast(`Тавтай морил, ${player.nickname}!`, 'ok');
-  } catch (e) {
-    errEl.textContent = e.message;
-    errEl.hidden = false;
-  }
+  } catch (e) { errEl.textContent = e.message; errEl.hidden = false; }
 }
 
 /* ============================ PREDICT ============================ */
 function renderPredict() {
-  const grid = $('#groupsGrid');
-  grid.innerHTML = '';
-  if (!state.cfg) return;
-  for (const gid of state.cfg.groupIds) {
-    grid.appendChild(renderGroupCard(gid));
-  }
-  updatePredictMeta();
-  if (state.cfg.lock.globalLockPassed) {
-    $('#predictHint').textContent = 'Таамаг хаагдсан. Самбараас оноогоо хар.';
-  }
+  const wrap = $('#groups');
+  wrap.innerHTML = '';
+  for (const g of state.cfg.groupIds) wrap.appendChild(groupCard(g));
+  updateMeter();
+  if (state.cfg.lock.globalLockPassed) $('#predictHint').textContent = 'Таамаг хаагдсан. Самбараас оноогоо хар.';
 }
 
-function renderGroupCard(gid) {
-  const teams = teamsOf(gid);
-  const order = state.picks[gid] || [];
-  const actual = state.cfg.results[gid]; // дууссан бол [id x4]
-  const locked = isGroupLocked(gid);
-  const complete = order.length === 4;
+function tagInfo(g) {
+  if (state.cfg.results[g]) return { cls: 'done', text: 'Дүн гарсан' };
+  if (state.cfg.lock.globalLockPassed) return { cls: 'locked', text: 'Хаагдсан' };
+  const n = placedOf(g).length;
+  if (n === 4) return { cls: 'done', text: 'Бэлэн ✓' };
+  if (n > 0) return { cls: 'edited', text: `${n}/4` };
+  return { cls: '', text: '' };
+}
 
-  const card = document.createElement('div');
-  card.className = 'group-card' + (complete ? ' complete' : '') + (locked ? ' locked' : '');
+function groupCard(g) {
+  const teams = teamsOf(g);
+  const actual = state.cfg.results[g];
+  const locked = isLocked(g);
+  const placed = placedOf(g);
+  const complete = placed.length === 4;
+  const realPick = state.savedPicks[g];
 
-  let tag = '';
-  if (actual) tag = '<span class="tag done">Дүн гарсан</span>';
-  else if (state.cfg.lock.globalLockPassed) tag = '<span class="tag live">Хаагдсан</span>';
-  else if (complete) tag = '<span class="tag ck">✓</span>';
+  const card = el('div', 'gcard');
+  card.dataset.card = g;
+  const ti = tagInfo(g);
+  const chipsActive = !locked && !complete;
 
-  // Дүн гарсан үед жинхэнэ эрэмбээр, эс бөгөөс таамгийн эрэмбээр харуулна
-  const displayTeams = actual
-    ? actual.map((id) => teams.find((t) => t.id === id))
-    : teams;
+  const chips = teams.map((t) => {
+    const used = placed.includes(t.id);
+    return `<button class="chip${used ? ' used' : ''}" data-chip="${t.id}" ${chipsActive ? '' : 'disabled'}>
+      <img src="${flagSrc(t.code)}" alt="" onerror="this.style.display='none'">${t.abbr || t.name.slice(0, 3).toUpperCase()}</button>`;
+  }).join('');
 
   let rows = '';
-  for (const t of displayTeams) {
-    const predPos = order.indexOf(t.id); // -1 бол сонгоогүй
-    const rankClass = predPos >= 0 ? ` r${predPos + 1}` : '';
-    let markCls = '';
-    let mark = '';
-    if (actual) {
-      const actualPos = actual.indexOf(t.id);
-      if (predPos === actualPos && predPos >= 0) {
-        markCls = ' correct';
-        mark = '✓';
-      } else {
-        markCls = ' wrong';
-        mark = '✗';
+  for (let i = 0; i < 4; i++) {
+    const id = actual ? actual[i] : placed[i];
+    if (id) {
+      const t = teamById(g, id);
+      let mark = '', right = '';
+      if (locked) {
+        if (actual && realPick) { const ok = realPick[i] === id; mark = ok ? ' correct' : ' wrong'; right = `<span class="mark">${ok ? ICON.check : ICON.x}</span>`; }
+      } else if (complete) {
+        right = `<span class="grip" aria-label="чирэх">${ICON.grip}</span>`;
       }
+      rows += `<li class="rrow ${QUAL[i]}${mark}" data-team="${id}">
+        <span class="num">${i + 1}</span>
+        <img class="flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <span class="tname">${t.name}</span>${right}</li>`;
+    } else {
+      rows += `<li class="rrow empty"><span class="num">${i + 1}</span><span class="ph">—</span></li>`;
     }
-    rows += `
-      <div class="team-row${rankClass}${markCls}${locked ? ' locked' : ''}" data-team="${t.id}">
-        <span class="rank">${predPos >= 0 ? predPos + 1 : '·'}</span>
-        ${flag(t.code)}
-        <span class="name">${t.name}</span>
-        ${mark ? `<span class="mark">${mark}</span>` : ''}
-      </div>`;
   }
 
   card.innerHTML = `
-    <div class="group-hdr"><span>Групп ${gid}</span>${tag}</div>
-    <div class="group-teams">${rows}</div>`;
+    <div class="gcard-head"><div class="gname">Групп <span>${g}</span></div>
+      <span class="gtag ${ti.cls}" ${ti.text ? '' : 'hidden'}>${ti.text}</span></div>
+    <div class="chips">${chips}</div>
+    <ul class="ranklist" data-group="${g}">${rows}</ul>`;
 
-  if (!locked) {
-    card.querySelectorAll('.team-row').forEach((rowEl) => {
-      rowEl.addEventListener('click', () => toggleRank(gid, rowEl.dataset.team));
+  if (chipsActive) {
+    card.querySelectorAll('.chip[data-chip]').forEach((c) => c.addEventListener('click', () => tapChip(g, c.dataset.chip)));
+  }
+  if (complete && !locked) {
+    const ul = card.querySelector('.ranklist');
+    new window.Sortable(ul, {
+      handle: '.grip', animation: 160, forceFallback: true, fallbackTolerance: 4,
+      ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', dragClass: 'sortable-drag',
+      onEnd: () => onReorder(g, ul),
     });
   }
   return card;
 }
 
-function toggleRank(gid, teamId) {
-  const order = state.picks[gid] ? [...state.picks[gid]] : [];
-  const idx = order.indexOf(teamId);
-  if (idx >= 0) {
-    order.splice(idx, 1); // сонгосон байсныг хасах
-  } else if (order.length < 4) {
-    order.push(teamId); // дараагийн байр оноох
+function tapChip(g, id) {
+  if (isLocked(g)) return;
+  const p = [...placedOf(g)];
+  const i = p.indexOf(id);
+  if (i >= 0) {
+    p.splice(i, 1); // буцааж авах
+  } else {
+    p.push(id);
+    if (p.length === 3) { const rem = teamsOf(g).find((t) => !p.includes(t.id)); if (rem) p.push(rem.id); } // 3 сонгоход 4 дэх нь авто
   }
-  state.picks[gid] = order;
+  state.picks[g] = p;
   saveDraft();
-  // зөвхөн тухайн картыг шинэчлэх
-  const grid = $('#groupsGrid');
-  const cards = grid.children;
-  const i = state.cfg.groupIds.indexOf(gid);
-  grid.replaceChild(renderGroupCard(gid), cards[i]);
-  updatePredictMeta();
+  rerenderCard(g);
+  updateMeter();
 }
 
-function updatePredictMeta() {
-  const done = state.cfg.groupIds.filter((g) => (state.picks[g] || []).length === 4).length;
+function rerenderCard(g) {
+  const old = $(`#groups [data-card="${g}"]`);
+  if (old) old.replaceWith(groupCard(g));
+}
+
+function onReorder(g, ul) {
+  state.picks[g] = [...ul.children].map((li) => li.dataset.team);
+  [...ul.children].forEach((li, i) => { li.className = 'rrow ' + QUAL[i]; li.querySelector('.num').textContent = i + 1; });
+  saveDraft();
+}
+
+function updateMeter() {
+  const done = state.cfg.groupIds.filter((g) => placedOf(g).length === 4).length;
   $('#predictDone').textContent = done;
-  const remaining = 12 - done;
-  $('#saveInfo').textContent = remaining === 0 ? 'Бүх групп бэлэн 🎉' : `${remaining} групп дутуу`;
+  $('#meterFill').style.width = (done / 12) * 100 + '%';
 }
 
 async function savePicks() {
   if (!state.player) return openNameModal();
-  // Зөвхөн бүрэн (4) группүүдийг илгээнэ; бусдыг алгасна
   const payload = {};
-  for (const g of state.cfg.groupIds) {
-    const o = state.picks[g] || [];
-    if (o.length === 4) payload[g] = o;
-  }
-  if (Object.keys(payload).length === 0) {
-    toast('Дор хаяж нэг группийг бүрэн эрэмбэл', 'err');
-    return;
-  }
-  const btn = $('#savePicksBtn');
-  btn.disabled = true;
-  try {
-    const { skipped } = await api.savePicks(payload);
-    if (skipped?.length) toast(`Хадгалсан. ${skipped.join(', ')} групп дүн гарсан тул өөрчлөгдсөнгүй.`, 'ok');
-    else toast('Таамаг хадгалагдлаа ✓', 'ok');
-  } catch (e) {
-    toast(e.message, 'err');
-  } finally {
-    btn.disabled = false;
-  }
+  for (const g of state.cfg.groupIds) if (!isLocked(g) && placedOf(g).length === 4) payload[g] = state.picks[g];
+  if (!Object.keys(payload).length) return toast('Эрэмбэлж дуусгасан групп алга', 'err');
+  const btn = $('#savePicksBtn'); btn.disabled = true;
+  try { const { picks } = await api.savePicks(payload); state.savedPicks = picks; toast('Таамаг хадгалагдлаа ✓', 'ok'); }
+  catch (e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; }
 }
 
 /* ============================ LEAGUES ============================ */
 async function loadLeagues() {
   const wrap = $('#myLeagues');
-  if (!state.player) {
-    wrap.innerHTML = '<div class="empty">Эхлээд нэрээ оруул.</div>';
-    return;
-  }
-  try {
-    state.myLeagues = (await api.myLeagues()).leagues;
-  } catch {
-    state.myLeagues = [];
-  }
-  if (!state.myLeagues.length) {
-    wrap.innerHTML = '<div class="empty">Лиг алга. Шинээр үүсгэ эсвэл кодоор нэгд.</div>';
-    return;
-  }
+  if (!state.player) { wrap.innerHTML = '<div class="empty">Эхлээд нэрээ оруул.</div>'; return; }
+  try { state.myLeagues = (await api.myLeagues()).leagues; } catch { state.myLeagues = []; }
+  if (!state.myLeagues.length) { wrap.innerHTML = '<div class="empty">Лиг алга. Шинээр үүсгэ эсвэл кодоор нэгд.</div>'; return; }
   wrap.innerHTML = '';
   for (const l of state.myLeagues) {
-    const div = document.createElement('div');
-    div.className = 'league-item';
-    div.innerHTML = `
-      <div>
-        <div class="l-name">${l.name}${l.owner ? ' 👑' : ''}</div>
-        <div class="l-meta">
-          <span class="code-badge" title="Хуулах">${l.code}</span>
-          <span>${l.memberCount} гишүүн</span>
-        </div>
-      </div>
+    const d = el('div', 'league-item');
+    d.innerHTML = `
+      <div><div class="l-name">${l.name}${l.owner ? ' 👑' : ''}</div>
+        <div class="l-meta"><span class="code-badge">${l.code}</span><span>${l.memberCount} гишүүн</span></div></div>
       <div class="spacer"></div>
       <button class="btn" data-board="${l.code}">Самбар</button>`;
-    div.querySelector('.code-badge').addEventListener('click', () => copyCode(l.code));
-    div.querySelector('[data-board]').addEventListener('click', () => {
-      state.boardScope = l.code;
-      switchScreen('leaderboard');
-    });
-    wrap.appendChild(div);
+    d.querySelector('.code-badge').addEventListener('click', () => copyCode(l.code));
+    d.querySelector('[data-board]').addEventListener('click', () => { state.boardScope = l.code; switchScreen('leaderboard'); });
+    wrap.appendChild(d);
   }
 }
-
-function copyCode(code) {
-  navigator.clipboard?.writeText(code).then(
-    () => toast(`Код хуулагдлаа: ${code}`, 'ok'),
-    () => toast(`Код: ${code}`)
-  );
-}
-
+function copyCode(code) { navigator.clipboard?.writeText(code).then(() => toast(`Код хуулагдлаа: ${code}`, 'ok'), () => toast(`Код: ${code}`)); }
 async function createLeague() {
   if (!state.player) return openNameModal();
   const name = $('#leagueNameInput').value.trim();
   if (name.length < 2) return toast('Лигийн нэр оруул', 'err');
-  try {
-    const { league } = await api.createLeague(name);
-    $('#leagueNameInput').value = '';
-    toast(`"${league.name}" үүслээ. Код: ${league.code}`, 'ok');
-    await loadLeagues();
-  } catch (e) {
-    toast(e.message, 'err');
-  }
+  try { const { league } = await api.createLeague(name); $('#leagueNameInput').value = ''; toast(`"${league.name}" үүслээ · ${league.code}`, 'ok'); await loadLeagues(); }
+  catch (e) { toast(e.message, 'err'); }
 }
-
 async function joinLeague() {
   if (!state.player) return openNameModal();
   const code = $('#joinCodeInput').value.trim().toUpperCase();
   if (!code) return toast('Код оруул', 'err');
-  try {
-    const { league } = await api.joinLeague(code);
-    $('#joinCodeInput').value = '';
-    toast(`"${league.name}" лигт нэгдлээ`, 'ok');
-    await loadLeagues();
-  } catch (e) {
-    toast(e.message, 'err');
-  }
+  try { const { league } = await api.joinLeague(code); $('#joinCodeInput').value = ''; toast(`"${league.name}" лигт нэгдлээ`, 'ok'); await loadLeagues(); }
+  catch (e) { toast(e.message, 'err'); }
 }
 
 /* ============================ LEADERBOARD ============================ */
-function buildScopeOptions() {
+function buildScope() {
   const sel = $('#boardScope');
   sel.innerHTML = '<option value="">🌍 Бүгд</option>';
-  for (const l of state.myLeagues) {
-    const opt = document.createElement('option');
-    opt.value = l.code;
-    opt.textContent = `🛡️ ${l.name}`;
-    sel.appendChild(opt);
-  }
+  for (const l of state.myLeagues) { const o = el('option'); o.value = l.code; o.textContent = l.name; sel.appendChild(o); }
   sel.value = state.boardScope;
 }
-
 async function loadLeaderboard() {
-  // лигийн жагсаалт байхгүй бол татах (scope select-д хэрэгтэй)
-  if (state.player && !state.myLeagues.length) {
-    try {
-      state.myLeagues = (await api.myLeagues()).leagues;
-    } catch {}
-  }
-  buildScopeOptions();
-  const board = $('#leaderboard');
-  board.innerHTML = '<div class="empty">Уншиж байна...</div>';
-  try {
-    const data = await api.leaderboard(state.boardScope);
-    renderBoard(data);
-  } catch (e) {
-    board.innerHTML = `<div class="empty">${e.message}</div>`;
-  }
+  if (state.player && !state.myLeagues.length) { try { state.myLeagues = (await api.myLeagues()).leagues; } catch {} }
+  buildScope();
+  const board = $('#leaderboard'); board.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  try { renderBoard(await api.leaderboard(state.boardScope)); }
+  catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
-
 function renderBoard(data) {
+  $('#boardMeta').textContent = `${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн` + (data.league ? ` · ${data.league.name}` : ' · Бүх тоглогч');
   const board = $('#leaderboard');
-  $('#boardMeta').textContent =
-    `${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн` +
-    (data.league ? ` · ${data.league.name}` : ' · Бүх тоглогч');
-  if (!data.players.length) {
-    board.innerHTML = '<div class="empty">Тоглогч алга.</div>';
-    return;
-  }
+  if (!data.players.length) { board.innerHTML = '<div class="empty">Тоглогч алга.</div>'; return; }
   board.innerHTML = '';
   for (const r of data.players) {
-    const div = document.createElement('div');
     const me = state.player && r.playerId === state.player.id;
-    div.className = 'board-row' + (me ? ' me' : '') + (r.rank <= 3 ? ` top${r.rank}` : '');
-    const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank;
-    div.innerHTML = `
-      <div class="pos">${medal}</div>
-      <div class="who">
-        <span class="nm">${r.nickname}${me ? ' (чи)' : ''}</span>
-        <span class="det">${r.completed}/12 таамаг · ${r.perfectGroups} төгс групп</span>
-      </div>
-      <div class="pts">${r.total}<small>оноо</small></div>`;
-    board.appendChild(div);
+    const d = el('div', 'brow' + (me ? ' me' : ''));
+    const posCls = r.rank <= 3 ? `pos medal g${r.rank}` : 'pos';
+    d.innerHTML = `<div class="${posCls}">${r.rank}</div>
+      <div class="who"><div class="nm">${r.nickname}${me ? ' · чи' : ''}</div><div class="det">${r.perfectGroups} төгс групп</div></div>
+      <div class="pts">${r.total}<small>ОНОО</small></div>`;
+    board.appendChild(d);
   }
 }
 
 /* ============================ ADMIN ============================ */
-function openAdmin() {
-  $('#adminModal').hidden = false;
-  renderAdminGroups();
-}
-function renderAdminGroups() {
-  const wrap = $('#adminGroups');
-  wrap.innerHTML = '';
-  const tmp = {}; // group -> order (admin-ийн оруулж буй түр утга)
-  for (const gid of state.cfg.groupIds) {
-    const teams = teamsOf(gid);
-    const existing = state.cfg.results[gid] || [];
-    tmp[gid] = [...existing];
-    const box = document.createElement('div');
-    box.className = 'admin-grp';
-    const renderRows = () => {
-      const order = tmp[gid];
-      box.querySelector('.ag-rows').innerHTML = teams
-        .map((t) => {
-          const pos = order.indexOf(t.id);
-          return `<div class="team-row${pos >= 0 ? ' r' + (pos + 1) : ''}" data-team="${t.id}">
-            <span class="rank">${pos >= 0 ? pos + 1 : '·'}</span>${flag(t.code)}
-            <span class="name">${t.name}</span></div>`;
-        })
-        .join('');
-      box.querySelectorAll('.ag-rows .team-row').forEach((rEl) => {
-        rEl.addEventListener('click', () => {
-          const id = rEl.dataset.team;
-          const i = tmp[gid].indexOf(id);
-          if (i >= 0) tmp[gid].splice(i, 1);
-          else if (tmp[gid].length < 4) tmp[gid].push(id);
-          renderRows();
-        });
-      });
-    };
+function openAdmin() { $('#adminModal').hidden = false; renderAdmin(); }
+function renderAdmin() {
+  const wrap = $('#adminGroups'); wrap.innerHTML = '';
+  for (const g of state.cfg.groupIds) {
+    const teams = teamsOf(g);
+    const order = state.cfg.results[g] ? [...state.cfg.results[g]] : teams.map((t) => t.id);
+    const box = el('div', 'admin-grp');
+    const rows = order.map((id, i) => {
+      const t = teamById(g, id);
+      return `<li class="rrow ${QUAL[i]}" data-team="${id}"><span class="num">${i + 1}</span><img class="flag" src="${flagSrc(t.code)}" alt="" onerror="this.style.visibility='hidden'"><span class="tname">${t.name}</span><span class="grip">${ICON.grip}</span></li>`;
+    }).join('');
     box.innerHTML = `
-      <div class="ag-hd"><span>Групп ${gid}</span>
-        <span>
-          <button class="btn" data-save="${gid}">Хадгалах</button>
-          <button class="btn" data-clear="${gid}">Цэвэрлэх</button>
-        </span>
-      </div>
-      <div class="ag-rows group-teams"></div>`;
-    renderRows();
-    box.querySelector(`[data-save="${gid}"]`).addEventListener('click', () => adminSave(gid, tmp[gid]));
-    box.querySelector(`[data-clear="${gid}"]`).addEventListener('click', () => adminSave(gid, []));
+      <div class="ag-hd"><span>Групп ${g}</span>
+        <span><button class="btn" data-save="${g}">Хадгалах</button> <button class="btn" data-clear="${g}">Цэвэрлэх</button></span></div>
+      <ul class="ranklist" data-agroup="${g}">${rows}</ul>`;
+    const ul = box.querySelector('.ranklist');
+    new window.Sortable(ul, {
+      handle: '.grip', animation: 160, forceFallback: true, fallbackTolerance: 4,
+      onEnd: () => { [...ul.children].forEach((li, i) => { li.className = 'rrow ' + QUAL[i]; li.querySelector('.num').textContent = i + 1; }); },
+    });
+    box.querySelector(`[data-save="${g}"]`).addEventListener('click', () => adminSave(g, [...ul.children].map((li) => li.dataset.team)));
+    box.querySelector(`[data-clear="${g}"]`).addEventListener('click', () => adminSave(g, []));
     wrap.appendChild(box);
   }
 }
-async function adminSave(gid, order) {
+async function adminSave(g, order) {
   const key = $('#adminKeyInput').value.trim();
   if (!key) return toast('Admin түлхүүр оруул', 'err');
-  if (order.length !== 0 && order.length !== 4) return toast('4 багийг бүрэн эрэмбэл', 'err');
   try {
-    await api.setResult(key, gid, order.length ? order : null);
-    state.cfg = await api.groups(); // results шинэчлэх
-    toast(`Групп ${gid} ${order.length ? 'хадгалагдлаа' : 'цэвэрлэгдлээ'} ✓`, 'ok');
+    await api.setResult(key, g, order.length ? order : null);
+    state.cfg = await api.groups();
+    toast(`Групп ${g} ${order.length ? 'хадгалагдлаа' : 'цэвэрлэгдлээ'} ✓`, 'ok');
     renderPredict();
-  } catch (e) {
-    toast(e.message, 'err');
-  }
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 /* ============================ NAV / WIRING ============================ */
 function switchScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== `screen-${name}`));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
-  $('.save-bar').style.display = name === 'predict' ? 'flex' : 'none';
+  $('#saveBar').hidden = name !== 'predict';
   if (name === 'leagues') loadLeagues();
   if (name === 'leaderboard') loadLeaderboard();
 }
-
-function wireNav() {
-  document.querySelectorAll('.nav-item').forEach((n) =>
-    n.addEventListener('click', () => switchScreen(n.dataset.screen))
-  );
-}
-
-function wireButtons() {
+function wire() {
+  $('#startBtn').addEventListener('click', startApp);
   $('#nameSubmit').addEventListener('click', submitName);
   $('#nameInput').addEventListener('keydown', (e) => e.key === 'Enter' && submitName());
   $('#savePicksBtn').addEventListener('click', savePicks);
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
-  $('#boardScope').addEventListener('change', (e) => {
-    state.boardScope = e.target.value;
-    loadLeaderboard();
-  });
-  $('#playerChip').addEventListener('click', () => {
-    if (confirm('Гарах уу? (нэрээ дахин оруулна)')) {
-      setToken('');
-      location.reload();
-    }
-  });
-  // Admin: толгойн цомыг дарж нээнэ, эсвэл #admin hash
-  document.querySelector('.brand-cup').addEventListener('click', openAdmin);
-  document.querySelectorAll('[data-close]').forEach((b) =>
-    b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true))
-  );
+  $('#boardScope').addEventListener('change', (e) => { state.boardScope = e.target.value; loadLeaderboard(); });
+  $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
+  $('#logoMark').addEventListener('click', openAdmin);
+  document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true)));
   if (location.hash === '#admin') openAdmin();
 }
 
