@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>WC 2026 Pick'em</title>
+  <meta name="description" content="World Cup 2026 групп шатны pick'em — найзуудтайгаа өрсөлд!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-cup">🏆</span>
+        <div>
+          <h1>WC 2026 PICK'EM</h1>
+          <div class="sub">Групп шатны таамаг</div>
+        </div>
+      </div>
+      <button id="playerChip" class="player-chip" hidden>
+        <span class="avatar" id="playerAvatar">?</span>
+        <span id="playerName">—</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- ===== Таамаг ===== -->
+    <section id="screen-predict" class="screen">
+      <div class="screen-head">
+        <div>
+          <h2>Таамаг</h2>
+          <p class="muted" id="predictHint">Групп бүрт багуудыг 1-4 байраар эрэмбэл.</p>
+        </div>
+        <div class="progress-pill"><span id="predictDone">0</span>/12 групп</div>
+      </div>
+      <div id="groupsGrid" class="groups-grid"></div>
+      <div class="save-bar">
+        <span class="save-info" id="saveInfo"></span>
+        <button id="savePicksBtn" class="btn btn-primary">Хадгалах</button>
+      </div>
+    </section>
+
+    <!-- ===== Лиг ===== -->
+    <section id="screen-leagues" class="screen" hidden>
+      <div class="screen-head"><h2>Лиг</h2></div>
+
+      <div class="card pad">
+        <h3>Шинэ лиг үүсгэх</h3>
+        <p class="muted">Лиг үүсгээд кодоо найзууддаа илгээ.</p>
+        <div class="row">
+          <input id="leagueNameInput" class="input" placeholder="Лигийн нэр (ж: Манай анги)" maxlength="30" />
+          <button id="createLeagueBtn" class="btn btn-primary">Үүсгэх</button>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h3>Лигт нэгдэх</h3>
+        <p class="muted">Найзаасаа авсан кодоо оруул.</p>
+        <div class="row">
+          <input id="joinCodeInput" class="input mono" placeholder="КОД" maxlength="6" style="text-transform:uppercase" />
+          <button id="joinLeagueBtn" class="btn">Нэгдэх</button>
+        </div>
+      </div>
+
+      <h3 class="section-title">Миний лигүүд</h3>
+      <div id="myLeagues" class="leagues-list"></div>
+    </section>
+
+    <!-- ===== Самбар (Leaderboard) ===== -->
+    <section id="screen-leaderboard" class="screen" hidden>
+      <div class="screen-head">
+        <h2>Самбар</h2>
+        <select id="boardScope" class="select"></select>
+      </div>
+      <p class="muted" id="boardMeta"></p>
+      <div id="leaderboard" class="board"></div>
+    </section>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-screen="predict"><span class="nav-ico">⚽</span><span>Таамаг</span></button>
+    <button class="nav-item" data-screen="leagues"><span class="nav-ico">🛡️</span><span>Лиг</span></button>
+    <button class="nav-item" data-screen="leaderboard"><span class="nav-ico">📊</span><span>Самбар</span></button>
+  </nav>
+
+  <!-- Nickname modal -->
+  <div id="nameModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-cup">🏆</div>
+      <h2>Тавтай морил!</h2>
+      <p class="muted">Нэрээ оруулаад тоглож эхэл. Нууц үг хэрэггүй.</p>
+      <input id="nameInput" class="input" placeholder="Чиний нэр / nickname" maxlength="24" />
+      <button id="nameSubmit" class="btn btn-primary block">Эхлэх</button>
+      <p class="error" id="nameError" hidden></p>
+    </div>
+  </div>
+
+  <!-- Admin modal -->
+  <div id="adminModal" class="modal" hidden>
+    <div class="modal-card wide">
+      <button class="modal-close" data-close="adminModal">✕</button>
+      <h2>Admin — жинхэнэ дүн</h2>
+      <p class="muted">Групп бүрийн эцсийн байрыг оруул. Оноо автоматаар тооцогдоно.</p>
+      <input id="adminKeyInput" class="input" placeholder="Admin түлхүүр" />
+      <div id="adminGroups" class="admin-groups"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

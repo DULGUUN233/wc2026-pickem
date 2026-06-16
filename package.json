@@ -1,0 +1,22 @@
+{
+  "name": "wc2026-pickem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FIFA World Cup 2026 group-stage pick'em with friends, leagues and a leaderboard",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "mongodb": "^6.12.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.2"
+  }
+}
