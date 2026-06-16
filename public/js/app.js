@@ -81,7 +81,6 @@ function renderPredict() {
   wrap.innerHTML = '';
   for (const g of state.cfg.groupIds) wrap.appendChild(groupCard(g));
   renderDeadline();
-  if (state.cfg.lock.globalLockPassed) $('#predictHint').textContent = 'Таамаг хаагдсан. "Лиг ба байр"-аас оноогоо хар.';
 }
 
 function renderDeadline() {
