@@ -307,7 +307,7 @@ function renderBoard(board, players) {
     const d = el('div', 'brow' + (me ? ' me' : ''));
     const posCls = r.rank <= 3 ? `pos medal g${r.rank}` : 'pos';
     d.innerHTML = `<div class="${posCls}">${r.rank}</div>
-      <div class="who"><div class="nm">${r.nickname}${me ? ' · чи' : ''}</div><div class="det">${r.perfectGroups} төгс групп</div></div>
+      <div class="who"><div class="nm">${r.nickname}</div><div class="det">${r.perfectGroups} төгс групп</div></div>
       <div class="pts">${r.total}<small>ОНОО</small></div>`;
     board.appendChild(d);
   }
