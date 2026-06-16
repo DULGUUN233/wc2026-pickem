@@ -45,6 +45,7 @@ async function init() {
   wire();
   if (state.player) await afterLogin();
   renderPredict();
+  if (!state.player) openNameModal();
 }
 
 async function afterLogin() {
@@ -59,8 +60,7 @@ function showPlayerChip() {
   $('#playerAvatar').textContent = state.player.nickname.charAt(0);
 }
 
-/* ============================ HERO / NAME ============================ */
-function startApp() { $('#screen-hero').hidden = true; if (!state.player) openNameModal(); }
+/* ============================ NAME ============================ */
 function openNameModal() { $('#nameModal').hidden = false; setTimeout(() => $('#nameInput').focus(), 120); }
 async function submitName() {
   const nickname = $('#nameInput').value.trim();
@@ -325,7 +325,6 @@ function switchScreen(name) {
   if (name === 'leagues') loadLeagues();
 }
 function wire() {
-  $('#startBtn').addEventListener('click', startApp);
   $('#nameSubmit').addEventListener('click', submitName);
   $('#nameInput').addEventListener('keydown', (e) => e.key === 'Enter' && submitName());
   $('#savePicksBtn').addEventListener('click', savePicks);
