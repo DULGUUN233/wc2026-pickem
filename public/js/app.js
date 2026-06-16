@@ -144,7 +144,7 @@ function groupCard(g) {
   if (complete && !locked) {
     const ul = card.querySelector('.ranklist');
     new window.Sortable(ul, {
-      handle: '.grip', animation: 160, forceFallback: true, fallbackTolerance: 4,
+      animation: 160, forceFallback: true, fallbackTolerance: 4, delay: 150, delayOnTouchOnly: true,
       ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', dragClass: 'sortable-drag',
       onEnd: () => onReorder(g, ul),
     });
@@ -298,7 +298,7 @@ function renderAdmin() {
       <ul class="ranklist" data-agroup="${g}">${rows}</ul>`;
     const ul = box.querySelector('.ranklist');
     new window.Sortable(ul, {
-      handle: '.grip', animation: 160, forceFallback: true, fallbackTolerance: 4,
+      animation: 160, forceFallback: true, fallbackTolerance: 4, delay: 150, delayOnTouchOnly: true,
       onEnd: () => { [...ul.children].forEach((li, i) => { li.className = 'rrow ' + QUAL[i]; li.querySelector('.num').textContent = i + 1; }); },
     });
     box.querySelector(`[data-save="${g}"]`).addEventListener('click', () => adminSave(g, [...ul.children].map((li) => li.dataset.team)));
