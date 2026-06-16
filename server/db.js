@@ -15,13 +15,20 @@ export async function connectDb() {
   let uri = process.env.MONGODB_URI?.trim();
 
   if (!uri) {
-    console.warn(
-      '\n⚠️  MONGODB_URI тохируулаагүй байна. Хөгжүүлэлтийн санах ойн MongoDB-г асааж байна.\n' +
-        '   Өгөгдөл хадгалагдахгүй. Жинхэнэ ашиглалтад .env дотор MONGODB_URI-аа өгнө үү.\n'
-    );
-    const { MongoMemoryServer } = await import('mongodb-memory-server');
-    memoryServer = await MongoMemoryServer.create();
-    uri = memoryServer.getUri();
+    try {
+      console.warn(
+        '\n⚠️  MONGODB_URI тохируулаагүй байна. Хөгжүүлэлтийн санах ойн MongoDB-г асааж байна.\n' +
+          '   Өгөгдөл хадгалагдахгүй. Жинхэнэ ашиглалтад .env дотор MONGODB_URI-аа өгнө үү.\n'
+      );
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
+      memoryServer = await MongoMemoryServer.create();
+      uri = memoryServer.getUri();
+    } catch {
+      throw new Error(
+        'MONGODB_URI тохируулаагүй байна. Production-д MONGODB_URI өгнө үү. ' +
+          '(Локал демонд in-memory ажиллуулах бол: npm i -D mongodb-memory-server)'
+      );
+    }
   }
 
   client = new MongoClient(uri);
