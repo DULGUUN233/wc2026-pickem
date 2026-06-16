@@ -288,13 +288,9 @@ async function showLeagueDetail(code, name) {
   $('#leagueHub').hidden = true;
   $('#leagueDetail').hidden = false;
   $('#ldName').textContent = name;
-  $('#ldMeta').textContent = 'Уншиж байна…';
-  const board = $('#ldBoard'); board.innerHTML = '';
+  const board = $('#ldBoard'); board.innerHTML = '<div class="empty">Уншиж байна…</div>';
   try {
     const data = await api.leaderboard(code || '');
-    $('#ldMeta').textContent = code
-      ? `Код ${code} · ${data.players.length} гишүүн · ${data.scoredGroups}/${data.totalGroups} групп`
-      : `${data.players.length} тоглогч · ${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн`;
     renderBoard(board, data.players);
   } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
@@ -307,7 +303,7 @@ function renderBoard(board, players) {
     const d = el('div', 'brow' + (me ? ' me' : ''));
     const posCls = r.rank <= 3 ? `pos medal g${r.rank}` : 'pos';
     d.innerHTML = `<div class="${posCls}">${r.rank}</div>
-      <div class="who"><div class="nm">${r.nickname}</div><div class="det">${r.perfectGroups} төгс групп</div></div>
+      <div class="who"><div class="nm">${r.nickname}</div></div>
       <div class="pts">${r.total}<small>ОНОО</small></div>`;
     board.appendChild(d);
   }
