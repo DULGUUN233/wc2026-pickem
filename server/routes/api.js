@@ -16,8 +16,11 @@ const router = express.Router();
 
 /* ----------------------------- туслахууд ----------------------------- */
 
+function lockAt() {
+  return process.env.PICKS_LOCK_AT?.trim() || TOURNAMENT.lockAt || '';
+}
 function globalLockPassed() {
-  const at = process.env.PICKS_LOCK_AT?.trim();
+  const at = lockAt();
   if (!at) return false;
   const t = Date.parse(at);
   if (Number.isNaN(t)) return false;
@@ -101,7 +104,7 @@ router.get(
       groups: GROUPS,
       results, // дууссан группүүдийн жинхэнэ эрэмбэ
       scoring: { pointsPerExact: POINTS_PER_EXACT, perfectGroupBonus: PERFECT_GROUP_BONUS },
-      lock: { globalLockPassed: globalLockPassed(), lockAt: process.env.PICKS_LOCK_AT || null },
+      lock: { globalLockPassed: globalLockPassed(), lockAt: lockAt() || null },
     });
   })
 );

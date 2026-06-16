@@ -81,7 +81,28 @@ function renderPredict() {
   wrap.innerHTML = '';
   for (const g of state.cfg.groupIds) wrap.appendChild(groupCard(g));
   updateMeter();
-  if (state.cfg.lock.globalLockPassed) $('#predictHint').textContent = 'Таамаг хаагдсан. Самбараас оноогоо хар.';
+  renderDeadline();
+  if (state.cfg.lock.globalLockPassed) $('#predictHint').textContent = 'Таамаг хаагдсан. "Лиг ба байр"-аас оноогоо хар.';
+}
+
+function renderDeadline() {
+  const elD = $('#deadline');
+  const at = state.cfg.lock.lockAt;
+  if (!at) { elD.hidden = true; return; }
+  elD.hidden = false;
+  const t = Date.parse(at);
+  clearInterval(renderDeadline._iv);
+  const tick = () => {
+    const diff = t - Date.now();
+    if (diff <= 0) { elD.className = 'deadline closed'; elD.textContent = '🔒 Таамаг хаагдсан'; clearInterval(renderDeadline._iv); return; }
+    const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
+    const dt = new Date(t);
+    const ds = `${dt.getMonth() + 1}-р сарын ${dt.getDate()}, ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    elD.className = 'deadline';
+    elD.innerHTML = `⏳ Хаагдахад <b>${d}ө ${h}ц ${m}м</b> үлдлээ · ${ds}`;
+  };
+  tick();
+  renderDeadline._iv = setInterval(tick, 1000);
 }
 
 function tagInfo(g) {
@@ -166,6 +187,7 @@ function tapChip(g, id) {
   saveDraft();
   rerenderCard(g);
   updateMeter();
+  autoSave();
 }
 
 function rerenderCard(g) {
@@ -177,6 +199,7 @@ function onReorder(g, ul) {
   state.picks[g] = [...ul.children].map((li) => li.dataset.team);
   [...ul.children].forEach((li, i) => { li.className = 'rrow ' + QUAL[i]; li.querySelector('.num').textContent = i + 1; });
   saveDraft();
+  autoSave();
 }
 
 function updateMeter() {
@@ -185,15 +208,17 @@ function updateMeter() {
   $('#meterFill').style.width = (done / 12) * 100 + '%';
 }
 
-async function savePicks() {
-  if (!state.player) return openNameModal();
-  const payload = {};
-  for (const g of state.cfg.groupIds) if (!isLocked(g) && placedOf(g).length === 4) payload[g] = state.picks[g];
-  if (!Object.keys(payload).length) return toast('Эрэмбэлж дуусгасан групп алга', 'err');
-  const btn = $('#savePicksBtn'); btn.disabled = true;
-  try { const { picks } = await api.savePicks(payload); state.savedPicks = picks; toast('Таамаг хадгалагдлаа ✓', 'ok'); }
-  catch (e) { toast(e.message, 'err'); }
-  finally { btn.disabled = false; }
+let _saveTimer;
+function autoSave() {
+  if (!state.player || state.cfg.lock.globalLockPassed) return;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    const payload = {};
+    for (const g of state.cfg.groupIds) if (!isLocked(g) && placedOf(g).length === 4) payload[g] = state.picks[g];
+    if (!Object.keys(payload).length) return;
+    try { const { picks } = await api.savePicks(payload); state.savedPicks = picks; }
+    catch (e) { toast(e.message, 'err'); }
+  }, 700);
 }
 
 /* ============================ LEAGUES + RANKING ============================ */
@@ -321,13 +346,11 @@ async function adminSave(g, order) {
 function switchScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== `screen-${name}`));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
-  $('#saveBar').hidden = name !== 'predict';
   if (name === 'leagues') loadLeagues();
 }
 function wire() {
   $('#nameSubmit').addEventListener('click', submitName);
   $('#nameInput').addEventListener('keydown', (e) => e.key === 'Enter' && submitName());
-  $('#savePicksBtn').addEventListener('click', savePicks);
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
   $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });

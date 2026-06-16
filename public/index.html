@@ -28,8 +28,9 @@
     <section id="screen-predict" class="screen">
       <div class="screen-head">
         <h2>Таамаг</h2>
-        <div class="sub" id="predictHint">Багуудыг чирж 1–4 байраар эрэмбэл.</div>
+        <div class="sub" id="predictHint">Багуудаас дарж эрэмбэл — автоматаар хадгална.</div>
       </div>
+      <div id="deadline" class="deadline" hidden></div>
       <div class="predict-meta">
         <div class="meter"><i id="meterFill" style="width:0%"></i></div>
         <div class="count"><b id="predictDone">0</b>/12 эрэмбэлсэн</div>
@@ -77,16 +78,6 @@
       </div>
     </section>
   </main>
-
-  <!-- save bar (зөвхөн Таамаг дээр) -->
-  <div class="savebar" id="saveBar">
-    <div class="savebar-inner">
-      <button id="savePicksBtn" class="btn btn-accent btn-save">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        Хадгалах
-      </button>
-    </div>
-  </div>
 
   <!-- bottom nav -->
   <nav class="bottom-nav">

@@ -63,7 +63,7 @@ img{display:block}
   background:linear-gradient(135deg,var(--purple),var(--red));color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
 
 /* ============================ LAYOUT ============================ */
-.main{max-width:720px;margin:0 auto;padding:16px 16px 120px}
+.main{max-width:720px;margin:0 auto;padding:16px 16px 92px}
 .screen{animation:fade .28s ease}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .screen-head{margin:4px 2px 18px}
@@ -145,11 +145,13 @@ img{display:block}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin:2px 4px 18px;font-size:11.5px;color:var(--text-2);font-weight:600}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
 
-/* ============================ SAVE BAR ============================ */
-.savebar{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:40;
-  pointer-events:none}
-.savebar-inner{max-width:720px;margin:0 auto;padding:10px 16px;display:flex;justify-content:flex-end}
-.btn{pointer-events:auto;border:1px solid var(--border);background:var(--surface);color:var(--text);
+/* deadline banner */
+.deadline{display:flex;align-items:center;justify-content:center;gap:8px;background:#FFF8EC;border:1px solid var(--play-soft);
+  color:#9A6700;border-radius:12px;padding:9px 12px;font-size:12.5px;font-weight:700;margin:0 2px 14px;text-align:center}
+.deadline.closed{background:#FEF2F2;border-color:#FECACA;color:var(--red)}
+
+/* ============================ BUTTONS ============================ */
+.btn{border:1px solid var(--border);background:var(--surface);color:var(--text);
   border-radius:var(--r-pill);padding:13px 20px;font-size:14px;font-weight:800;cursor:pointer;
   box-shadow:var(--shadow);transition:transform .15s,filter .15s,box-shadow .15s}
 .btn:active{transform:scale(.97)}
@@ -158,8 +160,6 @@ img{display:block}
 .btn-primary:hover{filter:brightness(1.12)}
 .btn-accent{background:linear-gradient(135deg,var(--purple),var(--red));color:#fff;border:none}
 .btn.block{width:100%;justify-content:center;display:flex}
-.btn-save{min-width:150px;justify-content:center;display:flex;align-items:center;gap:8px}
-.btn-save svg{width:17px;height:17px}
 
 /* ============================ LEAGUES ============================ */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}

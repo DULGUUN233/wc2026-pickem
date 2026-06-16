@@ -87,6 +87,8 @@ export const TOURNAMENT = {
   name: 'FIFA World Cup 2026',
   startDate: '2026-06-11',
   groupStageEndDate: '2026-06-27',
+  // Таамаг хаагдах хугацаа (Монголын цаг, UTC+8). PICKS_LOCK_AT env-ээр дарж болно.
+  lockAt: '2026-06-21T12:00:00+08:00',
 };
 
 // id -> {name, code, abbr, group}
