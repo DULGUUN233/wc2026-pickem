@@ -72,12 +72,16 @@ img{display:block}
 .muted{color:var(--text-2);font-size:13px;line-height:1.55}
 .section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin:24px 2px 12px}
 
-/* progress meter */
-.predict-meta{display:flex;align-items:center;gap:12px;margin:0 2px 16px}
-.meter{flex:1;height:8px;border-radius:var(--r-pill);background:var(--border);overflow:hidden}
-.meter>i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--purple),var(--red));transition:width .35s cubic-bezier(.4,0,.2,1)}
-.predict-meta .count{font-size:12.5px;font-weight:800;color:var(--text-2);white-space:nowrap}
-.predict-meta .count b{color:var(--text)}
+/* scoring rules card */
+.rules{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px 16px;margin:0 2px 16px}
+.rules-h{font-weight:800;font-size:14px;margin-bottom:9px}
+.rules ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+.rules li{font-size:12.5px;color:var(--text-2);line-height:1.5;padding-left:16px;position:relative}
+.rules li::before{content:'';position:absolute;left:2px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--purple)}
+.rules li b{color:var(--text)}
+.rules-key{display:flex;gap:14px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--border-2);font-size:11.5px;color:var(--text-2);font-weight:600}
+.rules-key .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.rules-key .dot.adv{background:var(--adv)}.rules-key .dot.play{background:var(--play)}.rules-key .dot.out{background:var(--out)}
 
 /* ============================ GROUP CARD ============================ */
 .groups{display:flex;flex-direction:column;gap:16px}
@@ -140,10 +144,6 @@ img{display:block}
 .sortable-ghost{opacity:.35}
 .sortable-chosen{box-shadow:var(--shadow-lg)}
 .sortable-drag{box-shadow:var(--shadow-lg)}
-
-/* qualification legend */
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin:2px 4px 18px;font-size:11.5px;color:var(--text-2);font-weight:600}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
 
 /* deadline banner */
 .deadline{display:flex;align-items:center;justify-content:center;gap:8px;background:#FFF8EC;border:1px solid var(--play-soft);

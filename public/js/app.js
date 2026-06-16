@@ -80,7 +80,6 @@ function renderPredict() {
   const wrap = $('#groups');
   wrap.innerHTML = '';
   for (const g of state.cfg.groupIds) wrap.appendChild(groupCard(g));
-  updateMeter();
   renderDeadline();
   if (state.cfg.lock.globalLockPassed) $('#predictHint').textContent = 'Таамаг хаагдсан. "Лиг ба байр"-аас оноогоо хар.';
 }
@@ -186,7 +185,6 @@ function tapChip(g, id) {
   state.picks[g] = p;
   saveDraft();
   rerenderCard(g);
-  updateMeter();
   autoSave();
 }
 
@@ -200,12 +198,6 @@ function onReorder(g, ul) {
   [...ul.children].forEach((li, i) => { li.className = 'rrow ' + QUAL[i]; li.querySelector('.num').textContent = i + 1; });
   saveDraft();
   autoSave();
-}
-
-function updateMeter() {
-  const done = state.cfg.groupIds.filter((g) => placedOf(g).length === 4).length;
-  $('#predictDone').textContent = done;
-  $('#meterFill').style.width = (done / 12) * 100 + '%';
 }
 
 let _saveTimer;
