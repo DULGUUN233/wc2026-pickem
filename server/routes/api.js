@@ -31,6 +31,25 @@ async function resultsMap() {
   return map;
 }
 
+// Тоглогчдыг оноогоор эрэмбэлж rank өгнө.
+async function rankPlayers(players, results) {
+  const pickDocs = await collections
+    .picks()
+    .find({ playerId: { $in: players.map((p) => String(p._id)) } })
+    .toArray();
+  const byPlayer = {};
+  for (const d of pickDocs) byPlayer[d.playerId] = d.picks;
+  const rows = players.map((p) => {
+    const picks = byPlayer[String(p._id)] || {};
+    const s = scorePicks(picks, results);
+    const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
+    return { playerId: String(p._id), nickname: p.nickname, total: s.total, perfectGroups: s.perfectGroups, completed };
+  });
+  rows.sort((a, b) => b.total - a.total || b.perfectGroups - a.perfectGroups || a.nickname.localeCompare(b.nickname));
+  rows.forEach((r, i) => (r.rank = i + 1));
+  return rows;
+}
+
 async function requirePlayer(req) {
   const token = req.get('x-wc-token');
   if (!token) throw new HttpError(401, 'Нэвтрээгүй байна');
@@ -230,16 +249,27 @@ router.get(
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
     const pid = String(player._id);
+    const results = await resultsMap();
     const leagues = await collections.leagues().find({ memberIds: pid }).toArray();
-    res.json({
-      leagues: leagues.map((l) => ({
+    const out = [];
+    for (const l of leagues) {
+      const members = await collections
+        .players()
+        .find({ _id: { $in: l.memberIds.map((id) => new ObjectId(id)) } })
+        .toArray();
+      const rows = await rankPlayers(members, results);
+      const mine = rows.find((r) => r.playerId === pid);
+      out.push({
         id: String(l._id),
         name: l.name,
         code: l.code,
         memberCount: l.memberIds.length,
         owner: l.ownerId === pid,
-      })),
-    });
+        myRank: mine ? mine.rank : null,
+        myTotal: mine ? mine.total : 0,
+      });
+    }
+    res.json({ leagues: out });
   })
 );
 
@@ -248,48 +278,20 @@ router.get(
 router.get(
   '/leaderboard',
   asyncHandler(async (req, res) => {
-    const leagueCodeParam = String(req.query.league || '').trim().toUpperCase();
+    const code = String(req.query.league || '').trim().toUpperCase();
     const results = await resultsMap();
 
-    // Хамрах тоглогчид
     let playerFilter = {};
     let leagueInfo = null;
-    if (leagueCodeParam) {
-      const league = await collections.leagues().findOne({ code: leagueCodeParam });
+    if (code) {
+      const league = await collections.leagues().findOne({ code });
       if (!league) throw new HttpError(404, 'Лиг олдсонгүй');
-      const ids = league.memberIds.map((id) => new ObjectId(id));
-      playerFilter = { _id: { $in: ids } };
+      playerFilter = { _id: { $in: league.memberIds.map((id) => new ObjectId(id)) } };
       leagueInfo = { name: league.name, code: league.code, memberCount: league.memberIds.length };
     }
 
     const players = await collections.players().find(playerFilter).toArray();
-    const pickDocs = await collections
-      .picks()
-      .find({ playerId: { $in: players.map((p) => String(p._id)) } })
-      .toArray();
-    const picksByPlayer = {};
-    for (const d of pickDocs) picksByPlayer[d.playerId] = d.picks;
-
-    const rows = players.map((p) => {
-      const picks = picksByPlayer[String(p._id)] || {};
-      const s = scorePicks(picks, results);
-      const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
-      return {
-        playerId: String(p._id),
-        nickname: p.nickname,
-        total: s.total,
-        perfectGroups: s.perfectGroups,
-        completed,
-      };
-    });
-
-    rows.sort(
-      (a, b) =>
-        b.total - a.total ||
-        b.perfectGroups - a.perfectGroups ||
-        a.nickname.localeCompare(b.nickname)
-    );
-    rows.forEach((r, i) => (r.rank = i + 1));
+    const rows = await rankPlayers(players, results);
 
     res.json({
       league: leagueInfo,

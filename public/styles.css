@@ -212,12 +212,21 @@ img{display:block}
   padding:11px 14px;font-size:14px;font-weight:700;font-family:inherit;outline:none;cursor:pointer}
 .leagues-list{display:flex;flex-direction:column;gap:11px}
 .league-item{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:15px;box-shadow:var(--shadow-sm)}
-.league-item .l-name{font-weight:800;font-size:15px}
+  border-radius:var(--radius);padding:13px 14px;box-shadow:var(--shadow-sm);cursor:pointer;transition:border-color .15s,transform .12s}
+.league-item:active{transform:scale(.99)}
+.league-item .l-rank{flex-shrink:0;min-width:44px;height:44px;padding:0 9px;border-radius:13px;display:grid;place-items:center;
+  font-weight:900;font-size:16px;color:#fff;background:linear-gradient(135deg,var(--purple),var(--red));font-variant-numeric:tabular-nums}
+.league-item .l-main{flex:1;min-width:0}
+.league-item .l-name{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .league-item .l-meta{font-size:12px;color:var(--text-2);margin-top:3px;display:flex;gap:9px;align-items:center}
+.league-item .chev{width:20px;height:20px;color:var(--text-3);flex-shrink:0}
 .code-badge{font-family:ui-monospace,monospace;font-weight:800;letter-spacing:.12em;color:var(--purple);
   background:#F3EEFE;padding:3px 9px;border-radius:7px;cursor:pointer}
-.league-item .spacer{flex:1}
+.ld-head{display:flex;align-items:center;gap:12px;margin:4px 2px 16px}
+.ld-head h2{font-family:var(--font-display);font-size:24px;font-weight:800;letter-spacing:-.02em}
+.iconbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;display:grid;place-items:center;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.iconbtn svg{width:20px;height:20px}
 .empty{color:var(--text-2);font-size:13.5px;text-align:center;padding:30px 18px;
   border:1.5px dashed var(--border);border-radius:var(--radius);background:var(--surface-2)}
 

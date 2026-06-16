@@ -7,7 +7,6 @@ const state = {
   picks: {}, // { A:[id,...] } 0-4 урт; бүрэн = 4
   savedPicks: {},
   myLeagues: [],
-  boardScope: '',
 };
 
 const $ = (s) => document.querySelector(s);
@@ -197,61 +196,61 @@ async function savePicks() {
   finally { btn.disabled = false; }
 }
 
-/* ============================ LEAGUES ============================ */
+/* ============================ LEAGUES + RANKING ============================ */
 async function loadLeagues() {
+  $('#leagueHub').hidden = false;
+  $('#leagueDetail').hidden = true;
+  await Promise.all([loadMyLeagues(), loadGlobalBoard()]);
+}
+
+async function loadMyLeagues() {
   const wrap = $('#myLeagues');
-  if (!state.player) { wrap.innerHTML = '<div class="empty">Эхлээд нэрээ оруул.</div>'; return; }
+  if (!state.player) { wrap.innerHTML = '<div class="empty">Эхлээд Таамаг хэсэгт нэрээ оруул.</div>'; return; }
   try { state.myLeagues = (await api.myLeagues()).leagues; } catch { state.myLeagues = []; }
   if (!state.myLeagues.length) { wrap.innerHTML = '<div class="empty">Лиг алга. Шинээр үүсгэ эсвэл кодоор нэгд.</div>'; return; }
   wrap.innerHTML = '';
   for (const l of state.myLeagues) {
     const d = el('div', 'league-item');
     d.innerHTML = `
-      <div><div class="l-name">${l.name}${l.owner ? ' 👑' : ''}</div>
-        <div class="l-meta"><span class="code-badge">${l.code}</span><span>${l.memberCount} гишүүн</span></div></div>
-      <div class="spacer"></div>
-      <button class="btn" data-board="${l.code}">Самбар</button>`;
-    d.querySelector('.code-badge').addEventListener('click', () => copyCode(l.code));
-    d.querySelector('[data-board]').addEventListener('click', () => { state.boardScope = l.code; switchScreen('leaderboard'); });
+      <div class="l-rank">${l.myRank ? '#' + l.myRank : '–'}</div>
+      <div class="l-main">
+        <div class="l-name">${l.name}${l.owner ? ' 👑' : ''}</div>
+        <div class="l-meta"><span class="code-badge">${l.code}</span><span>${l.memberCount} гишүүн</span></div>
+      </div>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+    d.querySelector('.code-badge').addEventListener('click', (e) => { e.stopPropagation(); copyCode(l.code); });
+    d.addEventListener('click', () => showLeagueDetail(l.code, l.name));
     wrap.appendChild(d);
   }
 }
-function copyCode(code) { navigator.clipboard?.writeText(code).then(() => toast(`Код хуулагдлаа: ${code}`, 'ok'), () => toast(`Код: ${code}`)); }
-async function createLeague() {
-  if (!state.player) return openNameModal();
-  const name = $('#leagueNameInput').value.trim();
-  if (name.length < 2) return toast('Лигийн нэр оруул', 'err');
-  try { const { league } = await api.createLeague(name); $('#leagueNameInput').value = ''; toast(`"${league.name}" үүслээ · ${league.code}`, 'ok'); await loadLeagues(); }
-  catch (e) { toast(e.message, 'err'); }
-}
-async function joinLeague() {
-  if (!state.player) return openNameModal();
-  const code = $('#joinCodeInput').value.trim().toUpperCase();
-  if (!code) return toast('Код оруул', 'err');
-  try { const { league } = await api.joinLeague(code); $('#joinCodeInput').value = ''; toast(`"${league.name}" лигт нэгдлээ`, 'ok'); await loadLeagues(); }
-  catch (e) { toast(e.message, 'err'); }
+
+async function loadGlobalBoard() {
+  const board = $('#globalBoard');
+  board.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  try {
+    const data = await api.leaderboard();
+    $('#globalMeta').textContent = `${data.players.length} тоглогч · ${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн`;
+    renderBoard(board, data.players);
+  } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
-/* ============================ LEADERBOARD ============================ */
-function buildScope() {
-  const sel = $('#boardScope');
-  sel.innerHTML = '<option value="">🌍 Бүгд</option>';
-  for (const l of state.myLeagues) { const o = el('option'); o.value = l.code; o.textContent = l.name; sel.appendChild(o); }
-  sel.value = state.boardScope;
+async function showLeagueDetail(code, name) {
+  $('#leagueHub').hidden = true;
+  $('#leagueDetail').hidden = false;
+  $('#ldName').textContent = name;
+  $('#ldMeta').textContent = 'Уншиж байна…';
+  const board = $('#ldBoard'); board.innerHTML = '';
+  try {
+    const data = await api.leaderboard(code);
+    $('#ldMeta').textContent = `Код ${code} · ${data.players.length} гишүүн · ${data.scoredGroups}/${data.totalGroups} групп`;
+    renderBoard(board, data.players);
+  } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
-async function loadLeaderboard() {
-  if (state.player && !state.myLeagues.length) { try { state.myLeagues = (await api.myLeagues()).leagues; } catch {} }
-  buildScope();
-  const board = $('#leaderboard'); board.innerHTML = '<div class="empty">Уншиж байна…</div>';
-  try { renderBoard(await api.leaderboard(state.boardScope)); }
-  catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
-}
-function renderBoard(data) {
-  $('#boardMeta').textContent = `${data.scoredGroups}/${data.totalGroups} групп дүгнэгдсэн` + (data.league ? ` · ${data.league.name}` : ' · Бүх тоглогч');
-  const board = $('#leaderboard');
-  if (!data.players.length) { board.innerHTML = '<div class="empty">Тоглогч алга.</div>'; return; }
+
+function renderBoard(board, players) {
+  if (!players.length) { board.innerHTML = '<div class="empty">Тоглогч алга.</div>'; return; }
   board.innerHTML = '';
-  for (const r of data.players) {
+  for (const r of players) {
     const me = state.player && r.playerId === state.player.id;
     const d = el('div', 'brow' + (me ? ' me' : ''));
     const posCls = r.rank <= 3 ? `pos medal g${r.rank}` : 'pos';
@@ -260,6 +259,23 @@ function renderBoard(data) {
       <div class="pts">${r.total}<small>ОНОО</small></div>`;
     board.appendChild(d);
   }
+}
+
+function copyCode(code) { navigator.clipboard?.writeText(code).then(() => toast(`Код хуулагдлаа: ${code}`, 'ok'), () => toast(`Код: ${code}`)); }
+
+async function createLeague() {
+  if (!state.player) return openNameModal();
+  const name = $('#leagueNameInput').value.trim();
+  if (name.length < 2) return toast('Лигийн нэр оруул', 'err');
+  try { const { league } = await api.createLeague(name); $('#leagueNameInput').value = ''; toast(`"${league.name}" үүслээ · ${league.code}`, 'ok'); loadMyLeagues(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+async function joinLeague() {
+  if (!state.player) return openNameModal();
+  const code = $('#joinCodeInput').value.trim().toUpperCase();
+  if (!code) return toast('Код оруул', 'err');
+  try { const { league } = await api.joinLeague(code); $('#joinCodeInput').value = ''; toast(`"${league.name}" лигт нэгдлээ`, 'ok'); loadMyLeagues(); }
+  catch (e) { toast(e.message, 'err'); }
 }
 
 /* ============================ ADMIN ============================ */
@@ -305,7 +321,6 @@ function switchScreen(name) {
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
   $('#saveBar').hidden = name !== 'predict';
   if (name === 'leagues') loadLeagues();
-  if (name === 'leaderboard') loadLeaderboard();
 }
 function wire() {
   $('#startBtn').addEventListener('click', startApp);
@@ -314,7 +329,7 @@ function wire() {
   $('#savePicksBtn').addEventListener('click', savePicks);
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
-  $('#boardScope').addEventListener('change', (e) => { state.boardScope = e.target.value; loadLeaderboard(); });
+  $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });
   $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true)));
