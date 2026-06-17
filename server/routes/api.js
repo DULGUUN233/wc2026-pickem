@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
+import { fetchMatches, todayUlaanbaatar } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -136,6 +137,15 @@ router.get(
   })
 );
 
+// Өдөр тутмын тоглолт (TheSportsDB). ?date=YYYY-MM-DD, default = Монголын өнөөдөр
+router.get(
+  '/matches',
+  asyncHandler(async (req, res) => {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : todayUlaanbaatar();
+    res.json(await fetchMatches(date));
+  })
+);
+
 /* ------------------------------- picks ------------------------------- */
 
 router.get(
@@ -186,6 +196,40 @@ router.put(
       { upsert: true }
     );
     res.json({ picks: next, skipped });
+  })
+);
+
+/* --------------------- Өдөр тутмын матчийн таамаг --------------------- */
+router.get(
+  '/matchpicks',
+  asyncHandler(async (req, res) => {
+    const player = await requirePlayer(req);
+    const doc = await collections.matchPicks().findOne({ playerId: String(player._id) });
+    res.json({ picks: doc?.picks || {} });
+  })
+);
+
+router.put(
+  '/matchpicks',
+  asyncHandler(async (req, res) => {
+    const player = await requirePlayer(req);
+    const incoming = req.body?.picks;
+    if (!incoming || typeof incoming !== 'object') throw new HttpError(400, 'picks буруу байна');
+    const cur = (await collections.matchPicks().findOne({ playerId: String(player._id) }))?.picks || {};
+    const next = { ...cur };
+    for (const [mid, p] of Object.entries(incoming)) {
+      if (!mid) continue;
+      if (p == null) { delete next[mid]; continue; }
+      const h = Number(p.h), a = Number(p.a);
+      if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) continue;
+      next[mid] = { h, a };
+    }
+    await collections.matchPicks().updateOne(
+      { playerId: String(player._id) },
+      { $set: { playerId: String(player._id), picks: next, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ picks: next });
   })
 );
 

@@ -29,6 +29,24 @@ export function scoreGroup(pick, actual) {
   return { points, correct, perfect };
 }
 
+/* ----------------------- Өдөр тутмын матчийн оноо ----------------------- */
+export const MATCH_EXACT = 2; // яг дүн зөв
+export const MATCH_OUTCOME = 1; // үр дүн (ялагч/тэнцэх) зөв, дүн буруу
+
+const sign = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
+
+/**
+ * Нэг матчийн таамгийг бодит дүнтэй тулгаж оноо өгнө.
+ * @param {{h:number,a:number}} pred  таамагласан дүн
+ * @param {number} h бодит гэрийн оноо
+ * @param {number} a бодит зочны оноо
+ */
+export function scoreMatch(pred, h, a) {
+  if (!pred || pred.h == null || pred.a == null || h == null || a == null) return 0;
+  if (pred.h === h && pred.a === a) return MATCH_EXACT;
+  return sign(pred.h, pred.a) === sign(h, a) ? MATCH_OUTCOME : 0;
+}
+
 /**
  * Тоглогчийн нийт оноог бүх группээр тооцно.
  * @param {Object<string,string[]>} picks   { A:[...], B:[...], ... }

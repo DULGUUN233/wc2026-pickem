@@ -26,20 +26,39 @@
   </header>
 
   <main class="main">
-    <!-- ===== Таамаг ===== -->
+    <!-- ===== Таамаг (3 дэд таб) ===== -->
     <section id="screen-predict" class="screen">
-      <div class="screen-head">
-        <h2>Таамаг</h2>
+      <div class="segmented">
+        <button class="seg active" data-sub="daily">Өдөр тутам</button>
+        <button class="seg" data-sub="group">Хэсгийн шат</button>
+        <button class="seg" data-sub="knockout">Хасагдах шат</button>
       </div>
-      <div id="deadline" class="deadline" hidden></div>
-      <div class="rules">
-        <div class="rules-h">📋 Онооны дүрэм</div>
-        <ul>
-          <li>Групп бүрийн 4 багийг <b>1–4 байр</b>аар таана.</li>
-          <li>Багийг <b>яг зөв байранд</b> таавал <b>1 оноо</b> — групп бүрт 4 хүртэл, нийт <b>48 оноо</b>.</li>
-        </ul>
+
+      <div id="sub-daily" class="subview">
+        <div class="daily-bar">
+          <button id="dayPrev" class="iconbtn" aria-label="Өмнөх өдөр">‹</button>
+          <div id="dayLabel" class="day-label">—</div>
+          <button id="dayNext" class="iconbtn" aria-label="Дараах өдөр">›</button>
+        </div>
+        <div id="dailyPts" class="daily-pts" hidden></div>
+        <div id="matches" class="matches"></div>
       </div>
-      <div id="groups" class="groups"></div>
+
+      <div id="sub-group" class="subview" hidden>
+        <div id="deadline" class="deadline" hidden></div>
+        <div class="rules">
+          <div class="rules-h">📋 Онооны дүрэм</div>
+          <ul>
+            <li>Групп бүрийн 4 багийг <b>1–4 байр</b>аар таана.</li>
+            <li>Багийг <b>яг зөв байранд</b> таавал <b>1 оноо</b> — групп бүрт 4 хүртэл, нийт <b>48 оноо</b>.</li>
+          </ul>
+        </div>
+        <div id="groups" class="groups"></div>
+      </div>
+
+      <div id="sub-knockout" class="subview" hidden>
+        <div class="empty">Хожлын тор (хасагдах шат) — удахгүй нэмэгдэнэ ⚽</div>
+      </div>
     </section>
 
     <!-- ===== Лиг ба байр ===== -->

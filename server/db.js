@@ -54,6 +54,7 @@ async function ensureIndexes(db) {
   await db.collection('players').createIndex({ token: 1 }, { unique: true });
   await db.collection('players').createIndex({ usionId: 1 }, { unique: true, sparse: true });
   await db.collection('picks').createIndex({ playerId: 1 }, { unique: true });
+  await db.collection('matchPicks').createIndex({ playerId: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ code: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ memberIds: 1 });
 }
@@ -66,6 +67,7 @@ export function getDb() {
 export const collections = {
   players: () => getDb().collection('players'),
   picks: () => getDb().collection('picks'),
+  matchPicks: () => getDb().collection('matchPicks'),
   leagues: () => getDb().collection('leagues'),
   results: () => getDb().collection('results'),
 };

@@ -7,6 +7,10 @@ const state = {
   picks: {}, // { A:[id,...] } 0-4 урт; бүрэн = 4
   savedPicks: {},
   myLeagues: [],
+  dailyDate: null,
+  dailyMatches: [],
+  matchPicks: {},
+  matchPicksSaved: {},
 };
 
 const $ = (s) => document.querySelector(s);
@@ -52,6 +56,7 @@ async function init() {
 
   if (state.player) await afterLogin();
   renderPredict();
+  loadDaily();
 
   // 3) Usion-гүй, сессгүй бол нэр асууна
   if (!state.player) openNameModal();
@@ -246,6 +251,114 @@ function autoSave() {
   }, 700);
 }
 
+/* ============================ DAILY (matches) ============================ */
+function shiftDate(dateStr, delta) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  const days = ['Ням', 'Дав', 'Мяг', 'Лха', 'Пүр', 'Баа', 'Бям'];
+  return `${d.getUTCMonth() + 1}-р сар ${d.getUTCDate()}, ${days[d.getUTCDay()]}`;
+}
+function canPredict(m) {
+  return !m.finished && /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
+}
+function scoreMatchClient(p, h, a) {
+  if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
+  if (p.h === h && p.a === a) return 2;
+  const sg = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
+  return sg(p.h, p.a) === sg(h, a) ? 1 : 0;
+}
+
+async function loadDaily(date) {
+  const wrap = $('#matches');
+  wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  let data;
+  try { data = await api.matches(date || ''); }
+  catch (e) { wrap.innerHTML = `<div class="empty">${e.message}</div>`; return; }
+  state.dailyDate = data.date;
+  state.dailyMatches = data.matches || [];
+  let picks = {};
+  if (state.player) { try { picks = (await api.getMatchPicks()).picks || {}; } catch {} }
+  state.matchPicksSaved = picks;
+  state.matchPicks = { ...picks };
+  renderDaily();
+}
+
+function renderDaily() {
+  $('#dayLabel').textContent = state.dailyDate ? fmtDate(state.dailyDate) : '—';
+  const wrap = $('#matches');
+  const ms = state.dailyMatches;
+  if (!ms.length) { wrap.innerHTML = '<div class="empty">Энэ өдөр World Cup тоглолт алга.</div>'; $('#dailyPts').hidden = true; return; }
+  wrap.innerHTML = '';
+  let pts = 0, scored = 0;
+  for (const m of ms) {
+    wrap.appendChild(matchCard(m));
+    if (m.finished && state.matchPicks[m.id]) { pts += scoreMatchClient(state.matchPicks[m.id], m.homeScore, m.awayScore); scored++; }
+  }
+  $('#dailyPts').hidden = !scored;
+  if (scored) $('#dailyPts').textContent = `Энэ өдрийн оноо: ${pts}`;
+}
+
+function flagImg(src) {
+  return src ? `<img src="${src}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span style="width:30px;display:inline-block"></span>';
+}
+function stepperHtml(side, val) {
+  return `<div class="stepper"><span class="val">${val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
+}
+
+function matchCard(m) {
+  const card = el('div', 'mcard');
+  const predictable = canPredict(m);
+  const statusCls = m.finished ? 'ft' : predictable ? 'ns' : 'live';
+  const statusTxt = m.finished ? 'Дууссан' : predictable ? 'Эхлээгүй' : 'LIVE';
+  const p = state.matchPicks[m.id];
+  const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm">${m.home}</span></div>`;
+  const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm">${m.away}</span></div>`;
+  let mid;
+  if (predictable) mid = `<div class="mc-score">${stepperHtml('h', p?.h ?? 0)}<span class="mc-colon">:</span>${stepperHtml('a', p?.a ?? 0)}</div>`;
+  else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
+  else mid = `<div class="mc-final" style="font-size:16px;color:var(--text-3)">VS</div>`;
+
+  card.innerHTML = `
+    <div class="mc-top"><span>${m.time || ''}</span><span class="mc-status ${statusCls}">${statusTxt}</span></div>
+    <div class="mc-body">${home}${mid}${away}</div>`;
+
+  if (m.finished && p) {
+    const pt = scoreMatchClient(p, m.homeScore, m.awayScore);
+    const f = el('div', 'mc-pred');
+    f.innerHTML = `Таны таамаг <b>${p.h}:${p.a}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
+    card.appendChild(f);
+  }
+  if (predictable) {
+    card.querySelectorAll('.stepper button').forEach((b) => b.addEventListener('click', () => stepScore(m.id, b.dataset.side, Number(b.dataset.delta))));
+  }
+  return card;
+}
+
+function stepScore(id, side, delta) {
+  if (!state.player) return openNameModal();
+  const cur = state.matchPicks[id] ? { ...state.matchPicks[id] } : { h: 0, a: 0 };
+  cur[side] = Math.max(0, Math.min(20, (cur[side] ?? 0) + delta));
+  state.matchPicks[id] = cur;
+  const idx = state.dailyMatches.findIndex((x) => x.id === id);
+  const cards = $('#matches').children;
+  if (idx >= 0 && cards[idx]) cards[idx].replaceWith(matchCard(state.dailyMatches[idx]));
+  autoSaveMatches();
+}
+
+let _matchTimer;
+function autoSaveMatches() {
+  if (!state.player) return;
+  clearTimeout(_matchTimer);
+  _matchTimer = setTimeout(async () => {
+    try { const { picks } = await api.saveMatchPicks(state.matchPicks); state.matchPicksSaved = picks; }
+    catch (e) { toast(e.message, 'err'); }
+  }, 700);
+}
+
 /* ============================ LEAGUES + RANKING ============================ */
 async function loadLeagues() {
   $('#leagueHub').hidden = false;
@@ -369,14 +482,23 @@ function switchScreen(name) {
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
   if (name === 'leagues') loadLeagues();
 }
+
+function setSubTab(name) {
+  document.querySelectorAll('.subview').forEach((v) => (v.hidden = v.id !== `sub-${name}`));
+  document.querySelectorAll('.seg').forEach((s) => s.classList.toggle('active', s.dataset.sub === name));
+  if (name === 'daily') loadDaily(state.dailyDate);
+}
 function wire() {
   $('#nameSubmit').addEventListener('click', submitName);
   $('#nameInput').addEventListener('keydown', (e) => e.key === 'Enter' && submitName());
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
   $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });
+  $('#dayPrev').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, -1)));
+  $('#dayNext').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, 1)));
   $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
+  document.querySelectorAll('.seg').forEach((b) => b.addEventListener('click', () => setSubTab(b.dataset.sub)));
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true)));
   if (location.hash === '#admin') openAdmin();
 }
