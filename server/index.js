@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDb, closeDb } from './db.js';
 import apiRouter from './routes/api.js';
+import { startPolling } from './lib/matches.js';
 import { HttpError } from './lib/util.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,7 @@ connectDb()
     const server = app.listen(PORT, () => {
       console.log(`🏆 WC2026 Pick'em ажиллаж байна: http://localhost:${PORT}`);
     });
+    startPolling(); // background: тоглолтын дүнг байнга шинэчилнэ
     const shutdown = async () => {
       console.log('\nХаагдаж байна...');
       server.close();

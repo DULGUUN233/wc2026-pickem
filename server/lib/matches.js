@@ -50,6 +50,9 @@ function mapFD(m) {
 
 let _all = null; // { at, byDate, results }
 let _allRefreshing = false;
+let _resultsVersion = 0; // дүн өөрчлөгдөх бүрт нэмэгдэнэ (scoreboard дахин тооцоход)
+export function getResultsVersion() { return _resultsVersion; }
+
 async function refreshAll() {
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
   if (!key) return;
@@ -68,7 +71,9 @@ async function refreshAll() {
       results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore };
     }
     for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const changed = !_all || JSON.stringify(results) !== JSON.stringify(_all.results);
     _all = { at: Date.now(), byDate, results };
+    if (changed) _resultsVersion++;
   } catch {}
 }
 async function ensureAll() {
@@ -79,6 +84,23 @@ async function ensureAll() {
   }
   if (!_all) await refreshAll(); // эхний удаа л блоклоно
   return _all;
+}
+
+// Background polling: live үед 30с, өнөөдөр тоглолттой бол 60с, эс бөгөөс 5 мин
+function nextPollDelay() {
+  if (!_all) return 30 * 1000;
+  const todays = _all.byDate[todayUlaanbaatar()] || [];
+  if (todays.some((m) => m.status === 'LIVE')) return 30 * 1000;
+  if (todays.some((m) => !m.finished)) return 60 * 1000;
+  return 5 * 60 * 1000;
+}
+export function startPolling() {
+  if (!process.env.FOOTBALL_DATA_KEY?.trim()) return; // түлхүүргүй бол утгагүй
+  const tick = async () => {
+    try { await refreshAll(); } catch {}
+    setTimeout(tick, nextPollDelay());
+  };
+  tick();
 }
 
 /* ---- TheSportsDB fallback (түлхүүргүй үед, per-date) ---- */

@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, scoreMatch, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, todayUlaanbaatar } from '../lib/matches.js';
+import { fetchMatches, fetchAllResults, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -53,7 +53,7 @@ const SB_TTL = 60 * 1000;
 function invalidateScoreboard() { _sbDirty = true; }
 
 async function getScoreboard() {
-  if (_sb && !_sbDirty && Date.now() - _sb.at < SB_TTL) return _sb;
+  if (_sb && !_sbDirty && _sb.rv === getResultsVersion() && Date.now() - _sb.at < SB_TTL) return _sb;
   const [results, matchResults, players, pickDocs, mpDocs] = await Promise.all([
     resultsMap(),
     fetchAllResults(),
@@ -77,7 +77,7 @@ async function getScoreboard() {
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
     byId[id] = { playerId: id, nickname: p.nickname, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
   }
-  _sb = { at: Date.now(), byId, scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length };
+  _sb = { at: Date.now(), rv: getResultsVersion(), byId, scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length };
   _sbDirty = false;
   return _sb;
 }

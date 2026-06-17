@@ -283,7 +283,7 @@ function scoreMatchClient(p, h, a) {
 
 async function loadDaily(date) {
   const wrap = $('#matches');
-  wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  if (!(state.dailyMatches || []).length) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
   // matchpicks-ийг сесст нэг л удаа татна; тоглолттой зэрэг (parallel)
   const needPicks = state.player && !state.matchPicksLoaded;
   const [data, picksRes] = await Promise.all([
@@ -528,7 +528,17 @@ function movePill(animate) {
   pill.style.top = `${seg.offsetTop}px`;
   if (!animate) { void pill.offsetWidth; pill.style.transition = ''; } // reflow → анимацыг сэргээх
 }
+// Апп нээлттэй / урагшаа ороход одоогийн дэлгэцийг чимээгүй шинэчилнэ
+function refreshCurrent() {
+  if (!state.player) return;
+  refreshScore();
+  if (!$('#screen-predict').hidden && !$('#sub-daily').hidden) loadDaily(state.dailyDate);
+  else if (!$('#screen-leagues').hidden && !$('#leagueHub').hidden) loadLeagues();
+}
+
 function wire() {
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshCurrent(); });
+  setInterval(() => { if (!document.hidden) refreshCurrent(); }, 60000);
   $('#nameSubmit').addEventListener('click', submitName);
   $('#nameInput').addEventListener('keydown', (e) => e.key === 'Enter' && submitName());
   $('#createLeagueBtn').addEventListener('click', createLeague);
