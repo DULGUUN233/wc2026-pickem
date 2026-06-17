@@ -32,7 +32,7 @@ function num(v) {
 }
 
 const cache = new Map(); // date -> { at, data }
-const TTL = 5 * 60 * 1000;
+const TTL = 90 * 1000;
 
 /** Монголын цагаар өнөөдөр (YYYY-MM-DD). */
 export function todayUlaanbaatar() {
@@ -114,37 +114,38 @@ async function fromSportsDb(date) {
 
 // Бүх WC матчийн эцсийн дүн (оноо тооцоход). { matchId: {finished, h, a} }
 let _allCache = null;
-export async function fetchAllResults() {
-  if (_allCache && Date.now() - _allCache.at < TTL) return _allCache.map;
+let _allRefreshing = false;
+async function refreshAllResults() {
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
-  const map = {};
+  if (!key) { _allCache = { at: Date.now(), map: {} }; return; }
   try {
-    if (key) {
-      const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
-        headers: { 'X-Auth-Token': key },
-        signal: AbortSignal.timeout(9000),
-      });
-      if (res.ok) {
-        const j = await res.json();
-        for (const m of j.matches || []) {
-          const finished = m.status === 'FINISHED';
-          const ft = m.score?.fullTime || {};
-          map[String(m.id)] = { finished, h: finished ? num(ft.home) : null, a: finished ? num(ft.away) : null };
-        }
-      }
+    const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+      headers: { 'X-Auth-Token': key },
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) return;
+    const j = await res.json();
+    const map = {};
+    for (const m of j.matches || []) {
+      const finished = m.status === 'FINISHED';
+      const ft = m.score?.fullTime || {};
+      map[String(m.id)] = { finished, h: finished ? num(ft.home) : null, a: finished ? num(ft.away) : null };
     }
-  } catch {
-    if (_allCache) return _allCache.map;
+    _allCache = { at: Date.now(), map };
+  } catch {}
+}
+export async function fetchAllResults() {
+  const fresh = _allCache && Date.now() - _allCache.at < TTL;
+  if (_allCache && !fresh && !_allRefreshing) {
+    _allRefreshing = true;
+    refreshAllResults().finally(() => { _allRefreshing = false; });
   }
-  _allCache = { at: Date.now(), map };
-  return map;
+  if (_allCache) return _allCache.map; // cache-аа шууд (хуучин ч гэсэн), арын дэвсгэрт шинэчилнэ
+  await refreshAllResults();
+  return _allCache ? _allCache.map : {};
 }
 
-/** Тухайн өдрийн WC2026 тоглолтуудыг буцаана. */
-export async function fetchMatches(date) {
-  const cached = cache.get(date);
-  if (cached && Date.now() - cached.at < TTL) return cached.data;
-
+async function refreshMatches(date) {
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
   let matches = [];
   let source = 'none';
@@ -153,11 +154,22 @@ export async function fetchMatches(date) {
     else { matches = await fromSportsDb(date); source = 'sportsdb'; }
   } catch (e) {
     try { matches = await fromSportsDb(date); source = `sportsdb-fallback (${e.message})`; }
-    catch { if (cached) return cached.data; matches = []; source = 'error'; }
+    catch { matches = []; source = 'error'; }
   }
   matches.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  cache.set(date, { at: Date.now(), data: { date, source, hasKey: !!key, matches } });
+}
 
-  const data = { date, source, hasKey: !!key, matches };
-  cache.set(date, { at: Date.now(), data });
-  return data;
+const _refreshing = new Set();
+/** Тухайн өдрийн WC2026 тоглолтууд (stale-while-revalidate). */
+export async function fetchMatches(date) {
+  const cached = cache.get(date);
+  const fresh = cached && Date.now() - cached.at < TTL;
+  if (cached && !fresh && !_refreshing.has(date)) {
+    _refreshing.add(date);
+    refreshMatches(date).finally(() => _refreshing.delete(date)); // арын дэвсгэрт шинэчлэх
+  }
+  if (cached) return cached.data; // cache-аа шууд буцаана
+  await refreshMatches(date);
+  return cache.get(date)?.data || { date, source: 'error', matches: [] };
 }
