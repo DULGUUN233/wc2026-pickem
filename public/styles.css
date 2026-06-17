@@ -79,6 +79,9 @@ img{display:block}
 .rules li{font-size:12.5px;color:var(--text-2);line-height:1.5;padding-left:16px;position:relative}
 .rules li::before{content:'';position:absolute;left:2px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--purple)}
 .rules li b{color:var(--text)}
+.rules-line{font-size:12.5px;color:var(--text-2);line-height:1.7}
+.rules-line b{color:var(--text)}
+.cdot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:middle}
 
 /* ============================ GROUP CARD ============================ */
 .groups{display:flex;flex-direction:column;gap:16px}
@@ -240,9 +243,13 @@ img{display:block}
 .mc-final{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;align-self:center}
 .mc-pred{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:11px;font-size:12px;color:var(--text-2)}
 .mc-pts{font-weight:800;padding:2px 10px;border-radius:99px}
-.mc-pts.p2{background:var(--adv-bg);color:var(--adv)}
-.mc-pts.p1{background:var(--play-bg);color:var(--play)}
-.mc-pts.p0{background:var(--surface-2);color:var(--text-3)}
+.mc-pts.p2{background:#FEF3C7;color:#B45309}
+.mc-pts.p1{background:#D1FAE5;color:#047857}
+.mc-pts.p0{background:#FEE2E2;color:#B91C1C}
+/* дууссан тоглолтын картын өнгө: 2=шар, 1=ногоон, 0=улаан */
+.mcard.res-exact{background:#FFFBEB;border-color:#FCD34D}
+.mcard.res-out{background:#ECFDF5;border-color:#86EFAC}
+.mcard.res-miss{background:#FEF2F2;border-color:#FECACA}
 
 /* ============================ BOTTOM NAV ============================ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;

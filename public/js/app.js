@@ -328,6 +328,7 @@ function matchCard(m) {
 
   if (m.finished && p) {
     const pt = scoreMatchClient(p, m.homeScore, m.awayScore);
+    card.classList.add(pt === 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
     f.innerHTML = `Таны таамаг <b>${p.h}:${p.a}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
     card.appendChild(f);
