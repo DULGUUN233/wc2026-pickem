@@ -92,6 +92,7 @@ function tryUsionLogin() {
 
 async function afterLogin() {
   showPlayerChip();
+  state.matchPicksLoaded = false;
   try { state.savedPicks = (await api.getPicks()).picks || {}; } catch { state.savedPicks = {}; }
   state.picks = { ...state.savedPicks, ...loadDraft() };
 }
@@ -283,15 +284,21 @@ function scoreMatchClient(p, h, a) {
 async function loadDaily(date) {
   const wrap = $('#matches');
   wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
-  let data;
-  try { data = await api.matches(date || ''); }
-  catch (e) { wrap.innerHTML = `<div class="empty">${e.message}</div>`; return; }
+  // matchpicks-ийг сесст нэг л удаа татна; тоглолттой зэрэг (parallel)
+  const needPicks = state.player && !state.matchPicksLoaded;
+  const [data, picksRes] = await Promise.all([
+    api.matches(date || '').catch((e) => ({ _err: e })),
+    needPicks ? api.getMatchPicks().catch(() => null) : Promise.resolve(null),
+  ]);
+  if (needPicks) {
+    state.matchPicksLoaded = true;
+    const p = picksRes?.picks || {};
+    state.matchPicks = { ...p };
+    state.matchPicksSaved = { ...p };
+  }
+  if (data?._err) { wrap.innerHTML = `<div class="empty">${data._err.message}</div>`; return; }
   state.dailyDate = data.date;
   state.dailyMatches = data.matches || [];
-  let picks = {};
-  if (state.player) { try { picks = (await api.getMatchPicks()).picks || {}; } catch {} }
-  state.matchPicksSaved = picks;
-  state.matchPicks = { ...picks };
   renderDaily();
 }
 

@@ -1,11 +1,12 @@
-// Өдөр тутмын WC2026 тоглолт.
-// FOOTBALL_DATA_KEY байвал football-data.org (албан ёсны бүрэн дата),
-// үгүй бол TheSportsDB (түлхүүргүй, гэхдээ дутуу байж магадгүй). 5 мин cache.
+// WC2026 тоглолтын дата.
+// FOOTBALL_DATA_KEY байвал бүх WC матчийг НЭГ дуудлагаар татаад огноогоор бүлэглэж cache хийнэ
+// (ямар ч өдөр шууд гарна). Түлхүүргүй бол TheSportsDB (per-date) руу буцна. 90с SWR cache.
 import { GROUPS, GROUP_IDS, FLAG_BASE } from './groups.js';
 
-// Багийн нэр -> туг код
+// Багийн нэр -> туг код / FIFA товчлол
 const NAME_TO_CODE = {};
-for (const g of GROUP_IDS) for (const t of GROUPS[g]) NAME_TO_CODE[t.name.toLowerCase()] = t.code;
+const CODE_TO_ABBR = {};
+for (const g of GROUP_IDS) for (const t of GROUPS[g]) { NAME_TO_CODE[t.name.toLowerCase()] = t.code; CODE_TO_ABBR[t.code] = t.abbr; }
 const ALIASES = {
   'iran': 'ir', 'ir iran': 'ir', 'korea': 'kr', 'south korea': 'kr', 'korea republic': 'kr',
   'usa': 'us', 'united states': 'us', 'turkey': 'tr', 'türkiye': 'tr', 'turkiye': 'tr',
@@ -14,110 +15,44 @@ const ALIASES = {
   'bosnia and herzegovina': 'ba', 'bosnia & herzegovina': 'ba', 'south africa': 'za',
   'scotland': 'gb-sct', 'england': 'gb-eng', 'saudi arabia': 'sa', 'new zealand': 'nz',
 };
-function flagFor(name) {
-  const n = (name || '').trim().toLowerCase();
-  const code = NAME_TO_CODE[n] || ALIASES[n] || null;
-  return code ? `${FLAG_BASE}${code}.png` : null;
-}
-// код -> FIFA 3-үсэгт товчлол
-const CODE_TO_ABBR = {};
-for (const g of GROUP_IDS) for (const t of GROUPS[g]) CODE_TO_ABBR[t.code] = t.abbr;
-function abbrFor(name) {
-  const n = (name || '').trim().toLowerCase();
-  const code = NAME_TO_CODE[n] || ALIASES[n] || null;
-  return (code && CODE_TO_ABBR[code]) || (name || '').slice(0, 3).toUpperCase();
-}
-function num(v) {
-  return v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null;
-}
+const codeOf = (name) => NAME_TO_CODE[(name || '').trim().toLowerCase()] || ALIASES[(name || '').trim().toLowerCase()] || null;
+const flagFor = (name) => { const c = codeOf(name); return c ? `${FLAG_BASE}${c}.png` : null; };
+const abbrFor = (name) => { const c = codeOf(name); return (c && CODE_TO_ABBR[c]) || (name || '').slice(0, 3).toUpperCase(); };
+const num = (v) => (v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null);
 
-const cache = new Map(); // date -> { at, data }
 const TTL = 90 * 1000;
 
-/** Монголын цагаар өнөөдөр (YYYY-MM-DD). */
-export function todayUlaanbaatar() {
-  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
-}
-/** UTC цагийг Монголын (UTC+8) HH:MM болгох. */
-function hhmmUB(iso) {
-  return new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toISOString().slice(11, 16);
-}
-/** UTC огноог Монголын өдөр (YYYY-MM-DD) болгох. */
-function dateUB(iso) {
-  return new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
-}
-function shiftDateStr(date, delta) {
-  const d = new Date(date + 'T12:00:00Z');
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
+export function todayUlaanbaatar() { return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10); }
+const hhmmUB = (iso) => new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toISOString().slice(11, 16);
+const dateUB = (iso) => new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+/* ---- football-data.org: бүх WC матчийг нэг дуудлагаар, огноогоор бүлэглэж cache ---- */
+function mapFD(m) {
+  const finished = m.status === 'FINISHED';
+  const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
+  const ft = m.score?.fullTime || {};
+  return {
+    id: String(m.id),
+    home: m.homeTeam?.name || 'TBD',
+    away: m.awayTeam?.name || 'TBD',
+    homeAbbr: abbrFor(m.homeTeam?.name),
+    awayAbbr: abbrFor(m.awayTeam?.name),
+    homeFlag: flagFor(m.homeTeam?.name) || m.homeTeam?.crest || null,
+    awayFlag: flagFor(m.awayTeam?.name) || m.awayTeam?.crest || null,
+    date: dateUB(m.utcDate),
+    time: hhmmUB(m.utcDate),
+    status: finished ? 'FT' : live ? 'LIVE' : 'NS',
+    finished,
+    homeScore: finished ? num(ft.home) : null,
+    awayScore: finished ? num(ft.away) : null,
+  };
 }
 
-// ---- football-data.org (албан ёсны, бүрэн) ----
-async function fromFootballData(date, key) {
-  // Монголын өдөр нь UTC [өмнөх 16:00 – энэ 16:00) — 2 хоногийн цонхоор татаад шүүнэ
-  const res = await fetch(
-    `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${shiftDateStr(date, -1)}&dateTo=${date}`,
-    { headers: { 'X-Auth-Token': key }, signal: AbortSignal.timeout(9000) }
-  );
-  if (!res.ok) throw new Error('football-data ' + res.status);
-  const j = await res.json();
-  return (j.matches || []).filter((m) => dateUB(m.utcDate) === date).map((m) => {
-    const finished = m.status === 'FINISHED';
-    const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
-    const ft = m.score?.fullTime || {};
-    return {
-      id: String(m.id),
-      home: m.homeTeam?.name || 'TBD',
-      away: m.awayTeam?.name || 'TBD',
-      homeAbbr: abbrFor(m.homeTeam?.name),
-      awayAbbr: abbrFor(m.awayTeam?.name),
-      homeFlag: flagFor(m.homeTeam?.name) || m.homeTeam?.crest || null,
-      awayFlag: flagFor(m.awayTeam?.name) || m.awayTeam?.crest || null,
-      date,
-      time: hhmmUB(m.utcDate),
-      status: finished ? 'FT' : live ? 'LIVE' : 'NS',
-      finished,
-      homeScore: finished ? num(ft.home) : null,
-      awayScore: finished ? num(ft.away) : null,
-    };
-  });
-}
-
-// ---- TheSportsDB (түлхүүргүй fallback) ----
-async function fromSportsDb(date) {
-  const res = await fetch(
-    `https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${encodeURIComponent(date)}&s=Soccer`,
-    { signal: AbortSignal.timeout(9000) }
-  );
-  const j = await res.json();
-  return (j.events || [])
-    .filter((e) => /world cup/i.test(e.strLeague || ''))
-    .map((e) => {
-      const finished = /^(FT|AET|PEN|Match Finished)$/i.test(e.strStatus || '');
-      return {
-        id: String(e.idEvent),
-        home: e.strHomeTeam,
-        away: e.strAwayTeam,
-        homeAbbr: abbrFor(e.strHomeTeam),
-        awayAbbr: abbrFor(e.strAwayTeam),
-        homeFlag: flagFor(e.strHomeTeam),
-        awayFlag: flagFor(e.strAwayTeam),
-        date: e.dateEvent,
-        time: (e.strTime || '').slice(0, 5),
-        status: finished ? 'FT' : 'NS',
-        finished,
-        homeScore: finished ? num(e.intHomeScore) : null,
-        awayScore: finished ? num(e.intAwayScore) : null,
-      };
-    });
-}
-
-// Бүх WC матчийн эцсийн дүн (оноо тооцоход). { matchId: {finished, h, a} }
-let _allCache = null;
+let _all = null; // { at, byDate, results }
 let _allRefreshing = false;
-async function refreshAllResults() {
+async function refreshAll() {
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
-  if (!key) { _allCache = { at: Date.now(), map: {} }; return; }
+  if (!key) return;
   try {
     const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
       headers: { 'X-Auth-Token': key },
@@ -125,51 +60,66 @@ async function refreshAllResults() {
     });
     if (!res.ok) return;
     const j = await res.json();
-    const map = {};
+    const byDate = {};
+    const results = {};
     for (const m of j.matches || []) {
-      const finished = m.status === 'FINISHED';
-      const ft = m.score?.fullTime || {};
-      map[String(m.id)] = { finished, h: finished ? num(ft.home) : null, a: finished ? num(ft.away) : null };
+      const mm = mapFD(m);
+      (byDate[mm.date] = byDate[mm.date] || []).push(mm);
+      results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore };
     }
-    _allCache = { at: Date.now(), map };
+    for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    _all = { at: Date.now(), byDate, results };
   } catch {}
 }
-export async function fetchAllResults() {
-  const fresh = _allCache && Date.now() - _allCache.at < TTL;
-  if (_allCache && !fresh && !_allRefreshing) {
+async function ensureAll() {
+  const fresh = _all && Date.now() - _all.at < TTL;
+  if (_all && !fresh && !_allRefreshing) {
     _allRefreshing = true;
-    refreshAllResults().finally(() => { _allRefreshing = false; });
+    refreshAll().finally(() => { _allRefreshing = false; });
   }
-  if (_allCache) return _allCache.map; // cache-аа шууд (хуучин ч гэсэн), арын дэвсгэрт шинэчилнэ
-  await refreshAllResults();
-  return _allCache ? _allCache.map : {};
+  if (!_all) await refreshAll(); // эхний удаа л блоклоно
+  return _all;
 }
 
-async function refreshMatches(date) {
-  const key = process.env.FOOTBALL_DATA_KEY?.trim();
-  let matches = [];
-  let source = 'none';
-  try {
-    if (key) { matches = await fromFootballData(date, key); source = 'football-data'; }
-    else { matches = await fromSportsDb(date); source = 'sportsdb'; }
-  } catch (e) {
-    try { matches = await fromSportsDb(date); source = `sportsdb-fallback (${e.message})`; }
-    catch { matches = []; source = 'error'; }
-  }
-  matches.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-  cache.set(date, { at: Date.now(), data: { date, source, hasKey: !!key, matches } });
+/* ---- TheSportsDB fallback (түлхүүргүй үед, per-date) ---- */
+const _sdb = new Map();
+async function fromSportsDb(date) {
+  const c = _sdb.get(date);
+  if (c && Date.now() - c.at < TTL) return c.matches;
+  const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${encodeURIComponent(date)}&s=Soccer`, { signal: AbortSignal.timeout(9000) });
+  const j = await res.json();
+  const matches = (j.events || [])
+    .filter((e) => /world cup/i.test(e.strLeague || ''))
+    .map((e) => {
+      const finished = /^(FT|AET|PEN|Match Finished)$/i.test(e.strStatus || '');
+      return {
+        id: String(e.idEvent), home: e.strHomeTeam, away: e.strAwayTeam,
+        homeAbbr: abbrFor(e.strHomeTeam), awayAbbr: abbrFor(e.strAwayTeam),
+        homeFlag: flagFor(e.strHomeTeam), awayFlag: flagFor(e.strAwayTeam),
+        date: e.dateEvent, time: (e.strTime || '').slice(0, 5),
+        status: finished ? 'FT' : 'NS', finished,
+        homeScore: finished ? num(e.intHomeScore) : null, awayScore: finished ? num(e.intAwayScore) : null,
+      };
+    })
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  _sdb.set(date, { at: Date.now(), matches });
+  return matches;
 }
 
-const _refreshing = new Set();
-/** Тухайн өдрийн WC2026 тоглолтууд (stale-while-revalidate). */
+/** Тухайн өдрийн тоглолтууд. */
 export async function fetchMatches(date) {
-  const cached = cache.get(date);
-  const fresh = cached && Date.now() - cached.at < TTL;
-  if (cached && !fresh && !_refreshing.has(date)) {
-    _refreshing.add(date);
-    refreshMatches(date).finally(() => _refreshing.delete(date)); // арын дэвсгэрт шинэчлэх
+  const key = process.env.FOOTBALL_DATA_KEY?.trim();
+  if (key) {
+    const all = await ensureAll();
+    if (all) return { date, source: 'football-data', hasKey: true, matches: all.byDate[date] || [] };
   }
-  if (cached) return cached.data; // cache-аа шууд буцаана
-  await refreshMatches(date);
-  return cache.get(date)?.data || { date, source: 'error', matches: [] };
+  try { return { date, source: 'sportsdb', hasKey: false, matches: await fromSportsDb(date) }; }
+  catch { return { date, source: 'error', hasKey: false, matches: [] }; }
+}
+
+/** Бүх матчийн эцсийн дүн { id: {finished, h, a} } (оноо тооцоход). */
+export async function fetchAllResults() {
+  const key = process.env.FOOTBALL_DATA_KEY?.trim();
+  if (key) { const all = await ensureAll(); if (all) return all.results; }
+  return {};
 }
