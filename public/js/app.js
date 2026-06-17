@@ -95,8 +95,13 @@ async function afterLogin() {
 
 function showPlayerChip() {
   $('#playerChip').hidden = false;
-  $('#playerName').textContent = state.player.nickname;
   $('#playerAvatar').textContent = state.player.nickname.charAt(0);
+  $('#playerName').textContent = '…';
+  refreshScore();
+}
+async function refreshScore() {
+  if (!state.player) return;
+  try { const { total } = await api.me(); $('#playerName').textContent = `${total ?? 0} оноо`; } catch {}
 }
 
 /* ============================ NAME ============================ */
@@ -476,6 +481,7 @@ function switchScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== `screen-${name}`));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
   if (name === 'leagues') loadLeagues();
+  refreshScore();
 }
 
 function setSubTab(name) {

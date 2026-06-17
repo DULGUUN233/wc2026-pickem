@@ -123,7 +123,8 @@ router.get(
   '/me',
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
-    res.json({ player: publicPlayer(player) });
+    const rows = await rankPlayers([player], await resultsMap());
+    res.json({ player: publicPlayer(player), total: rows[0]?.total || 0 });
   })
 );
 
