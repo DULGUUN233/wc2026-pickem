@@ -57,6 +57,9 @@ async function ensureIndexes(db) {
   await db.collection('matchPicks').createIndex({ playerId: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ code: 1 }, { unique: true });
   await db.collection('leagues').createIndex({ memberIds: 1 });
+  // notify dedupe: нэг key зөвхөн нэг удаа явна; 60 хоногийн дараа автоматаар цэвэрлэнэ
+  await db.collection('notifications').createIndex({ key: 1 }, { unique: true });
+  await db.collection('notifications').createIndex({ sentAt: 1 }, { expireAfterSeconds: 60 * 24 * 3600 });
 }
 
 export function getDb() {
@@ -70,6 +73,7 @@ export const collections = {
   matchPicks: () => getDb().collection('matchPicks'),
   leagues: () => getDb().collection('leagues'),
   results: () => getDb().collection('results'),
+  notifications: () => getDb().collection('notifications'),
 };
 
 export async function closeDb() {

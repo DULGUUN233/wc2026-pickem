@@ -158,3 +158,9 @@ export async function fetchAllResults() {
   if (key) { const all = await ensureAll(); if (all) return all.results; }
   return {};
 }
+
+/** Бүх матчийг нэг хавтгай жагсаалтаар (notify scheduler-д). */
+export async function allMatches() {
+  const all = await ensureAll();
+  return all ? Object.values(all.byDate).flat() : [];
+}
