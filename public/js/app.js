@@ -382,8 +382,24 @@ async function saveMatch(id) {
     await api.saveMatchPicks({ [id]: { h: pick.h, a: pick.a } });
     state.matchPicksSaved[id] = { h: pick.h, a: pick.a };
     rerenderMatchCard(id);
-    toast('Хадгалагдлаа ✓', 'ok');
+    successCheck();
   } catch (e) { toast(e.message, 'err'); }
+}
+
+// Хадгалсан үед төв дээр бичиггүй ногоон check анимэйшн
+function successCheck() {
+  document.querySelector('.t-check-host')?.remove();
+  const host = el('div', 't-check-host');
+  host.innerHTML = `<span class="t-success-check" data-state="out" aria-hidden="true">
+    <svg viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" fill="#10B981"/>
+      <path d="M15 24.5 L21.5 31 L33 18" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg></span>`;
+  document.body.appendChild(host);
+  const chk = host.firstElementChild;
+  requestAnimationFrame(() => chk.setAttribute('data-state', 'in'));
+  setTimeout(() => { chk.style.transition = 'opacity .3s ease'; chk.style.opacity = '0'; }, 900);
+  setTimeout(() => host.remove(), 1250);
 }
 
 // Хэвтээ swipe-аар өдөр солих (зүүн → дараагийн, баруун → өмнөх)
