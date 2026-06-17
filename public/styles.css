@@ -206,6 +206,7 @@ img{display:block}
 .seg.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
 
 /* ============================ DAILY (matches) ============================ */
+#sub-daily{touch-action:pan-y}
 .daily-bar{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 2px 14px}
 .day-label{font-weight:800;font-size:15px;min-width:160px;text-align:center}
 .matches{display:flex;flex-direction:column;gap:12px}

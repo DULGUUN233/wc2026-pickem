@@ -349,6 +349,20 @@ function stepScore(id, side, delta) {
   autoSaveMatches();
 }
 
+// Хэвтээ swipe-аар өдөр солих (зүүн → дараагийн, баруун → өмнөх)
+function setupSwipe() {
+  const zone = $('#sub-daily');
+  let sx = 0, sy = 0, t0 = 0;
+  zone.addEventListener('touchstart', (e) => { const t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; t0 = Date.now(); }, { passive: true });
+  zone.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Date.now() - t0 < 800 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5 && state.dailyDate) {
+      loadDaily(shiftDate(state.dailyDate, dx < 0 ? 1 : -1));
+    }
+  }, { passive: true });
+}
+
 let _matchTimer;
 function autoSaveMatches() {
   if (!state.player) return;
@@ -497,6 +511,7 @@ function wire() {
   $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });
   $('#dayPrev').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, -1)));
   $('#dayNext').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, 1)));
+  setupSwipe();
   $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
   document.querySelectorAll('.seg').forEach((b) => b.addEventListener('click', () => setSubTab(b.dataset.sub)));
