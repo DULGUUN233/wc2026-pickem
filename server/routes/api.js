@@ -2,8 +2,8 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
-import { scorePicks, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, todayUlaanbaatar } from '../lib/matches.js';
+import { scorePicks, scoreMatch, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
+import { fetchMatches, fetchAllResults, todayUlaanbaatar } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -37,17 +37,25 @@ async function resultsMap() {
 
 // Тоглогчдыг оноогоор эрэмбэлж rank өгнө.
 async function rankPlayers(players, results) {
-  const pickDocs = await collections
-    .picks()
-    .find({ playerId: { $in: players.map((p) => String(p._id)) } })
-    .toArray();
+  const ids = players.map((p) => String(p._id));
+  const pickDocs = await collections.picks().find({ playerId: { $in: ids } }).toArray();
   const byPlayer = {};
   for (const d of pickDocs) byPlayer[d.playerId] = d.picks;
+  const mpDocs = await collections.matchPicks().find({ playerId: { $in: ids } }).toArray();
+  const mpByPlayer = {};
+  for (const d of mpDocs) mpByPlayer[d.playerId] = d.picks;
+  const matchResults = await fetchAllResults();
   const rows = players.map((p) => {
     const picks = byPlayer[String(p._id)] || {};
     const s = scorePicks(picks, results);
+    let dailyPts = 0;
+    const mp = mpByPlayer[String(p._id)] || {};
+    for (const [mid, pred] of Object.entries(mp)) {
+      const r = matchResults[mid];
+      if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a);
+    }
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
-    return { playerId: String(p._id), nickname: p.nickname, total: s.total, perfectGroups: s.perfectGroups, completed };
+    return { playerId: String(p._id), nickname: p.nickname, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
   });
   rows.sort((a, b) => b.total - a.total || b.perfectGroups - a.perfectGroups || a.nickname.localeCompare(b.nickname));
   rows.forEach((r, i) => (r.rank = i + 1));

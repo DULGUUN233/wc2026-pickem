@@ -112,6 +112,34 @@ async function fromSportsDb(date) {
     });
 }
 
+// Бүх WC матчийн эцсийн дүн (оноо тооцоход). { matchId: {finished, h, a} }
+let _allCache = null;
+export async function fetchAllResults() {
+  if (_allCache && Date.now() - _allCache.at < TTL) return _allCache.map;
+  const key = process.env.FOOTBALL_DATA_KEY?.trim();
+  const map = {};
+  try {
+    if (key) {
+      const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+        headers: { 'X-Auth-Token': key },
+        signal: AbortSignal.timeout(9000),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        for (const m of j.matches || []) {
+          const finished = m.status === 'FINISHED';
+          const ft = m.score?.fullTime || {};
+          map[String(m.id)] = { finished, h: finished ? num(ft.home) : null, a: finished ? num(ft.away) : null };
+        }
+      }
+    }
+  } catch {
+    if (_allCache) return _allCache.map;
+  }
+  _allCache = { at: Date.now(), map };
+  return map;
+}
+
 /** Тухайн өдрийн WC2026 тоглолтуудыг буцаана. */
 export async function fetchMatches(date) {
   const cached = cache.get(date);
