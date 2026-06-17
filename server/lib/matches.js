@@ -19,6 +19,14 @@ function flagFor(name) {
   const code = NAME_TO_CODE[n] || ALIASES[n] || null;
   return code ? `${FLAG_BASE}${code}.png` : null;
 }
+// код -> FIFA 3-үсэгт товчлол
+const CODE_TO_ABBR = {};
+for (const g of GROUP_IDS) for (const t of GROUPS[g]) CODE_TO_ABBR[t.code] = t.abbr;
+function abbrFor(name) {
+  const n = (name || '').trim().toLowerCase();
+  const code = NAME_TO_CODE[n] || ALIASES[n] || null;
+  return (code && CODE_TO_ABBR[code]) || (name || '').slice(0, 3).toUpperCase();
+}
 function num(v) {
   return v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null;
 }
@@ -61,6 +69,8 @@ async function fromFootballData(date, key) {
       id: String(m.id),
       home: m.homeTeam?.name || 'TBD',
       away: m.awayTeam?.name || 'TBD',
+      homeAbbr: abbrFor(m.homeTeam?.name),
+      awayAbbr: abbrFor(m.awayTeam?.name),
       homeFlag: flagFor(m.homeTeam?.name) || m.homeTeam?.crest || null,
       awayFlag: flagFor(m.awayTeam?.name) || m.awayTeam?.crest || null,
       date,
@@ -88,6 +98,8 @@ async function fromSportsDb(date) {
         id: String(e.idEvent),
         home: e.strHomeTeam,
         away: e.strAwayTeam,
+        homeAbbr: abbrFor(e.strHomeTeam),
+        awayAbbr: abbrFor(e.strAwayTeam),
         homeFlag: flagFor(e.strHomeTeam),
         awayFlag: flagFor(e.strAwayTeam),
         date: e.dateEvent,

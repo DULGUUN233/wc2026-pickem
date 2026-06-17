@@ -315,8 +315,8 @@ function matchCard(m) {
   const statusCls = m.finished ? 'ft' : predictable ? 'ns' : 'live';
   const statusTxt = m.finished ? 'Дууссан' : predictable ? 'Эхлээгүй' : 'LIVE';
   const p = state.matchPicks[m.id];
-  const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm">${m.home}</span></div>`;
-  const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm">${m.away}</span></div>`;
+  const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm" title="${m.home}">${m.homeAbbr || m.home}</span></div>`;
+  const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm" title="${m.away}">${m.awayAbbr || m.away}</span></div>`;
   let mid;
   if (predictable) mid = `<div class="mc-score">${stepperHtml('h', p?.h ?? 0)}<span class="mc-colon">:</span>${stepperHtml('a', p?.a ?? 0)}</div>`;
   else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
