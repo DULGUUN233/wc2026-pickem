@@ -46,19 +46,21 @@ async function init() {
 
   wire();
 
-  // 1) Usion mini-app дотор бол identity-г платформоос авна (nickname асуухгүй)
-  await tryUsionLogin();
+  // Нэвтрэлт ба өдрийн дата татахыг ЗЭРЭГ — анхны ачаалал хурдан
+  const matchesPrefetch = api.matches('').catch(() => null); // server cache-ийг халаана
+  const authP = (async () => {
+    await tryUsionLogin(); // Usion дотор бол identity платформоос
+    if (!state.player && getToken()) { // standalone: хадгалсан сесс сэргээх
+      try { state.player = (await api.me()).player; } catch { setToken(''); }
+    }
+    if (state.player) await afterLogin();
+  })();
+  await Promise.all([authP, matchesPrefetch]);
 
-  // 2) Standalone (Usion-гүй) — хадгалсан сесс сэргээх
-  if (!state.player && getToken()) {
-    try { state.player = (await api.me()).player; } catch { setToken(''); }
-  }
-
-  if (state.player) await afterLogin();
   renderPredict();
-  loadDaily();
+  await loadDaily(); // cache халсан тул хурдан
 
-  // 3) Usion-гүй, сессгүй бол нэр асууна
+  // Usion-гүй, сессгүй бол нэр асууна
   if (!state.player) openNameModal();
 }
 
