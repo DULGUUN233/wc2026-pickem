@@ -327,26 +327,26 @@ function stepperHtml(side, val) {
 function matchCard(m) {
   const card = el('div', 'mcard');
   const predictable = canPredict(m);
-  const statusCls = m.finished ? 'ft' : predictable ? 'ns' : 'live';
-  const statusTxt = m.finished ? 'Дууссан' : predictable ? 'Эхлээгүй' : 'LIVE';
+  const when = m.finished ? 'Дууссан' : (m.time || ''); // оноон дээр төвд: дууссан/цаг
   const pick = state.matchPicks[m.id];          // ажлын таамаг (h/a нь тоо эсвэл undefined)
   const saved = state.matchPicksSaved[m.id];     // хадгалагдсан таамаг (бүтэн)
   const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm" title="${m.home}">${m.homeAbbr || m.home}</span></div>`;
   const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm" title="${m.away}">${m.awayAbbr || m.away}</span></div>`;
   let mid;
   if (predictable) mid = `<div class="mc-score">${stepperHtml('h', pick?.h)}<span class="mc-colon">:</span>${stepperHtml('a', pick?.a)}</div>`;
-  else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
+  // Дууссан: төвд МИНИЙ ТААМАГ (таамаглаагүй бол жинхэнэ дүн)
+  else if (m.finished) mid = `<div class="mc-final">${saved ? `${saved.h} : ${saved.a}` : `${m.homeScore} : ${m.awayScore}`}</div>`;
   else mid = `<div class="mc-final" style="font-size:16px;color:var(--text-3)">VS</div>`;
 
   card.innerHTML = `
-    <div class="mc-top"><span>${m.time || ''}</span><span class="mc-status ${statusCls}">${statusTxt}</span></div>
+    <div class="mc-when">${when}</div>
     <div class="mc-body">${home}${mid}${away}</div>`;
 
   if (m.finished && saved) {
     const pt = scoreMatchClient(saved, m.homeScore, m.awayScore);
     card.classList.add(pt === 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
-    f.innerHTML = `Таны таамаг <b>${saved.h}:${saved.a}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
+    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
     card.appendChild(f);
   }
   if (predictable) {
