@@ -107,15 +107,17 @@ export async function fetchMatches(date) {
 
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
   let matches = [];
+  let source = 'none';
   try {
-    matches = key ? await fromFootballData(date, key) : await fromSportsDb(date);
-  } catch {
-    try { matches = await fromSportsDb(date); } // FD алдвал SportsDB
-    catch { if (cached) return cached.data; matches = []; }
+    if (key) { matches = await fromFootballData(date, key); source = 'football-data'; }
+    else { matches = await fromSportsDb(date); source = 'sportsdb'; }
+  } catch (e) {
+    try { matches = await fromSportsDb(date); source = `sportsdb-fallback (${e.message})`; }
+    catch { if (cached) return cached.data; matches = []; source = 'error'; }
   }
   matches.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-  const data = { date, matches };
+  const data = { date, source, hasKey: !!key, matches };
   cache.set(date, { at: Date.now(), data });
   return data;
 }
