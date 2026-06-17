@@ -155,7 +155,7 @@ function tagInfo(g) {
   if (state.cfg.results[g]) return { cls: 'done', text: 'Дүн гарсан' };
   if (state.cfg.lock.globalLockPassed) return { cls: 'locked', text: 'Хаагдсан' };
   const n = placedOf(g).length;
-  if (n === 4) return { cls: 'done', text: 'Бэлэн ✓' };
+  if (n === 4) return { cls: '', text: '' };
   if (n > 0) return { cls: 'edited', text: `${n}/4` };
   return { cls: '', text: '' };
 }
@@ -299,9 +299,13 @@ async function loadDaily(date) {
     state.matchPicksSaved = { ...p };
   }
   if (data?._err) { wrap.innerHTML = `<div class="empty">${data._err.message}</div>`; return; }
+  const ms = data.matches || [];
+  const sig = JSON.stringify(ms.map((m) => [m.id, m.status, m.homeScore, m.awayScore, m.ts]));
+  const sameView = data.date === state.dailyDate && sig === state._dailySig;
   state.dailyDate = data.date;
-  state.dailyMatches = data.matches || [];
-  renderDaily();
+  state.dailyMatches = ms;
+  state._dailySig = sig;
+  if (!sameView) renderDaily(); // өгөгдөл хэвээр бол дахин зурахгүй (лого анивчихгүй)
 }
 
 function renderDaily() {
@@ -317,7 +321,7 @@ function flagImg(src) {
   return src ? `<img src="${src}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span style="width:30px;display:inline-block"></span>';
 }
 function stepperHtml(side, val) {
-  return `<div class="stepper"><span class="val">${val == null ? '?' : val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
+  return `<div class="stepper"><span class="val" data-side="${side}">${val == null ? '?' : val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
 }
 
 function matchCard(m) {
@@ -359,10 +363,31 @@ function matchCard(m) {
   return card;
 }
 
-function rerenderMatchCard(id) {
+// Зөвхөн тоо ба Save товчийг байрандаа шинэчилнэ (картыг дахин зурахгүй → лого анивчихгүй)
+function patchMatchCard(id) {
   const idx = state.dailyMatches.findIndex((x) => x.id === id);
-  const cards = $('#matches').children;
-  if (idx >= 0 && cards[idx]) cards[idx].replaceWith(matchCard(state.dailyMatches[idx]));
+  const card = $('#matches').children[idx];
+  if (!card) return;
+  const pick = state.matchPicks[id];
+  const saved = state.matchPicksSaved[id];
+  const hv = card.querySelector('.val[data-side="h"]');
+  const av = card.querySelector('.val[data-side="a"]');
+  if (hv) hv.textContent = pick?.h == null ? '?' : pick.h;
+  if (av) av.textContent = pick?.a == null ? '?' : pick.a;
+  const dirty = (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null);
+  let saveEl = card.querySelector('.mc-save');
+  if (dirty) {
+    const complete = typeof pick?.h === 'number' && typeof pick?.a === 'number';
+    if (!saveEl) {
+      saveEl = el('div', 'mc-save');
+      saveEl.innerHTML = `<button class="btn btn-accent mc-savebtn">Хадгалах</button>`;
+      saveEl.querySelector('button').addEventListener('click', () => saveMatch(id));
+      card.appendChild(saveEl);
+    }
+    saveEl.querySelector('button').disabled = !complete;
+  } else if (saveEl) {
+    saveEl.remove();
+  }
 }
 
 function stepScore(id, side, delta) {
@@ -372,7 +397,7 @@ function stepScore(id, side, delta) {
   if (delta > 0) cur[side] = v == null ? 0 : Math.min(20, v + 1); // + ? → 0
   else if (v != null) cur[side] = Math.max(0, v - 1);             // − ? → ? хэвээр; − 0 → 0
   state.matchPicks[id] = cur;
-  rerenderMatchCard(id);
+  patchMatchCard(id);
 }
 
 async function saveMatch(id) {
@@ -381,7 +406,7 @@ async function saveMatch(id) {
   try {
     await api.saveMatchPicks({ [id]: { h: pick.h, a: pick.a } });
     state.matchPicksSaved[id] = { h: pick.h, a: pick.a };
-    rerenderMatchCard(id);
+    patchMatchCard(id);
     successCheck();
   } catch (e) { toast(e.message, 'err'); }
 }
@@ -390,18 +415,21 @@ async function saveMatch(id) {
 function successCheck() {
   document.querySelector('.t-check-host')?.remove();
   const host = el('div', 't-check-host');
-  host.innerHTML = `<span class="t-success-check" data-state="out" aria-hidden="true">
-    <svg viewBox="0 0 48 48" fill="none">
-      <circle cx="24" cy="24" r="22" fill="#10B981"/>
-      <path d="M15 24.5 L21.5 31 L33 18" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg></span>`;
+  host.innerHTML = `<div class="t-check-box">
+    <span class="t-success-check" data-state="out" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" fill="#10B981"/>
+        <path d="M15 24.5 L21.5 31 L33 18" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg></span>
+    <span class="t-check-label">Хадгалагдсан</span>
+  </div>`;
   document.body.appendChild(host);
   const seg = document.querySelector('.segmented'); // табуудын доор байрлуулна
   if (seg) host.style.paddingTop = Math.round(seg.getBoundingClientRect().bottom + 10) + 'px';
-  const chk = host.firstElementChild;
-  requestAnimationFrame(() => chk.setAttribute('data-state', 'in'));
-  setTimeout(() => { chk.style.transition = 'opacity .3s ease'; chk.style.opacity = '0'; }, 900);
-  setTimeout(() => host.remove(), 1250);
+  const box = host.firstElementChild;
+  requestAnimationFrame(() => box.querySelector('.t-success-check').setAttribute('data-state', 'in'));
+  setTimeout(() => { box.style.transition = 'opacity .3s ease'; box.style.opacity = '0'; }, 1150);
+  setTimeout(() => host.remove(), 1500);
 }
 
 // Хэвтээ swipe-аар өдөр солих (зүүн → дараагийн, баруун → өмнөх)
