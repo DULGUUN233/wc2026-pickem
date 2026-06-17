@@ -317,7 +317,7 @@ function flagImg(src) {
   return src ? `<img src="${src}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span style="width:30px;display:inline-block"></span>';
 }
 function stepperHtml(side, val) {
-  return `<div class="stepper"><span class="val">${val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
+  return `<div class="stepper"><span class="val">${val == null ? '?' : val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
 }
 
 function matchCard(m) {
@@ -325,11 +325,12 @@ function matchCard(m) {
   const predictable = canPredict(m);
   const statusCls = m.finished ? 'ft' : predictable ? 'ns' : 'live';
   const statusTxt = m.finished ? 'Дууссан' : predictable ? 'Эхлээгүй' : 'LIVE';
-  const p = state.matchPicks[m.id];
+  const pick = state.matchPicks[m.id];          // ажлын таамаг (h/a нь тоо эсвэл undefined)
+  const saved = state.matchPicksSaved[m.id];     // хадгалагдсан таамаг (бүтэн)
   const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm" title="${m.home}">${m.homeAbbr || m.home}</span></div>`;
   const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm" title="${m.away}">${m.awayAbbr || m.away}</span></div>`;
   let mid;
-  if (predictable) mid = `<div class="mc-score">${stepperHtml('h', p?.h ?? 0)}<span class="mc-colon">:</span>${stepperHtml('a', p?.a ?? 0)}</div>`;
+  if (predictable) mid = `<div class="mc-score">${stepperHtml('h', pick?.h)}<span class="mc-colon">:</span>${stepperHtml('a', pick?.a)}</div>`;
   else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
   else mid = `<div class="mc-final" style="font-size:16px;color:var(--text-3)">VS</div>`;
 
@@ -337,28 +338,52 @@ function matchCard(m) {
     <div class="mc-top"><span>${m.time || ''}</span><span class="mc-status ${statusCls}">${statusTxt}</span></div>
     <div class="mc-body">${home}${mid}${away}</div>`;
 
-  if (m.finished && p) {
-    const pt = scoreMatchClient(p, m.homeScore, m.awayScore);
+  if (m.finished && saved) {
+    const pt = scoreMatchClient(saved, m.homeScore, m.awayScore);
     card.classList.add(pt === 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
-    f.innerHTML = `Таны таамаг <b>${p.h}:${p.a}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
+    f.innerHTML = `Таны таамаг <b>${saved.h}:${saved.a}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
     card.appendChild(f);
   }
   if (predictable) {
     card.querySelectorAll('.stepper button').forEach((b) => b.addEventListener('click', () => stepScore(m.id, b.dataset.side, Number(b.dataset.delta))));
+    const dirty = (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null);
+    if (dirty) {
+      const complete = typeof pick?.h === 'number' && typeof pick?.a === 'number';
+      const f = el('div', 'mc-save');
+      f.innerHTML = `<button class="btn btn-accent mc-savebtn"${complete ? '' : ' disabled'}>Хадгалах</button>`;
+      f.querySelector('button').addEventListener('click', () => saveMatch(m.id));
+      card.appendChild(f);
+    }
   }
   return card;
 }
 
-function stepScore(id, side, delta) {
-  if (!state.player) return openNameModal();
-  const cur = state.matchPicks[id] ? { ...state.matchPicks[id] } : { h: 0, a: 0 };
-  cur[side] = Math.max(0, Math.min(20, (cur[side] ?? 0) + delta));
-  state.matchPicks[id] = cur;
+function rerenderMatchCard(id) {
   const idx = state.dailyMatches.findIndex((x) => x.id === id);
   const cards = $('#matches').children;
   if (idx >= 0 && cards[idx]) cards[idx].replaceWith(matchCard(state.dailyMatches[idx]));
-  autoSaveMatches();
+}
+
+function stepScore(id, side, delta) {
+  if (!state.player) return openNameModal();
+  const cur = { ...(state.matchPicks[id] || {}) };
+  const v = cur[side];
+  if (delta > 0) cur[side] = v == null ? 0 : Math.min(20, v + 1); // + ? → 0
+  else if (v != null) cur[side] = Math.max(0, v - 1);             // − ? → ? хэвээр; − 0 → 0
+  state.matchPicks[id] = cur;
+  rerenderMatchCard(id);
+}
+
+async function saveMatch(id) {
+  const pick = state.matchPicks[id];
+  if (!pick || typeof pick.h !== 'number' || typeof pick.a !== 'number') return; // ?-тэй бол болохгүй
+  try {
+    await api.saveMatchPicks({ [id]: { h: pick.h, a: pick.a } });
+    state.matchPicksSaved[id] = { h: pick.h, a: pick.a };
+    rerenderMatchCard(id);
+    toast('Хадгалагдлаа ✓', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 // Хэвтээ swipe-аар өдөр солих (зүүн → дараагийн, баруун → өмнөх)
@@ -373,16 +398,6 @@ function setupSwipe() {
       loadDaily(shiftDate(state.dailyDate, dx < 0 ? 1 : -1));
     }
   }, { passive: true });
-}
-
-let _matchTimer;
-function autoSaveMatches() {
-  if (!state.player) return;
-  clearTimeout(_matchTimer);
-  _matchTimer = setTimeout(async () => {
-    try { const { picks } = await api.saveMatchPicks(state.matchPicks); state.matchPicksSaved = picks; }
-    catch (e) { toast(e.message, 'err'); }
-  }, 700);
 }
 
 /* ============================ LEAGUES + RANKING ============================ */
