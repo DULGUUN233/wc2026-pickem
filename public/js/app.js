@@ -58,6 +58,7 @@ async function init() {
   await Promise.all([authP, matchesPrefetch]);
 
   renderPredict();
+  movePill(false);
   await loadDaily(); // cache халсан тул хурдан
 
   // Usion-гүй, сессгүй бол нэр асууна
@@ -497,13 +498,28 @@ function switchScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== `screen-${name}`));
   document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === name));
   if (name === 'leagues') loadLeagues();
+  if (name === 'predict') movePill(false);
   refreshScore();
 }
 
 function setSubTab(name) {
   document.querySelectorAll('.subview').forEach((v) => (v.hidden = v.id !== `sub-${name}`));
   document.querySelectorAll('.seg').forEach((s) => s.classList.toggle('active', s.dataset.sub === name));
+  movePill(true);
   if (name === 'daily') loadDaily(state.dailyDate);
+}
+
+// Гүйдэг pill-ийг идэвхтэй таб руу байрлуулна. animate=false бол шууд (анимацгүй) шилжинэ.
+function movePill(animate) {
+  const seg = document.querySelector('.seg.active');
+  const pill = document.querySelector('.seg-pill');
+  if (!seg || !pill) return;
+  if (!animate) pill.style.transition = 'none';
+  pill.style.transform = `translateX(${seg.offsetLeft}px)`;
+  pill.style.width = `${seg.offsetWidth}px`;
+  pill.style.height = `${seg.offsetHeight}px`;
+  pill.style.top = `${seg.offsetTop}px`;
+  if (!animate) { void pill.offsetWidth; pill.style.transition = ''; } // reflow → анимацыг сэргээх
 }
 function wire() {
   $('#nameSubmit').addEventListener('click', submitName);
@@ -517,6 +533,8 @@ function wire() {
   $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
   document.querySelectorAll('.seg').forEach((b) => b.addEventListener('click', () => setSubTab(b.dataset.sub)));
+  window.addEventListener('resize', () => movePill(false));
+  document.fonts?.ready?.then(() => movePill(false));
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => ($('#' + b.dataset.close).hidden = true)));
   if (location.hash === '#admin') openAdmin();
 }

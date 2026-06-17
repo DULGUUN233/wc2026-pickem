@@ -199,11 +199,16 @@ img{display:block}
 .brow .pts small{display:block;font-size:10px;color:var(--text-3);font-weight:700;letter-spacing:.04em}
 
 /* ============================ SEGMENTED (sub-tabs) ============================ */
-.segmented{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--border);
+.segmented{position:relative;display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--border);
   border-radius:var(--r-pill);padding:4px;margin:2px 2px 16px}
-.seg{flex:1;border:none;background:none;color:var(--text-2);font-family:inherit;font-size:12px;font-weight:800;
-  padding:9px 4px;border-radius:var(--r-pill);cursor:pointer;white-space:nowrap;transition:color .15s,background .15s}
-.seg.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.seg-pill{position:absolute;top:4px;left:0;height:34px;width:0;background:var(--surface);border-radius:var(--r-pill);
+  box-shadow:var(--shadow-sm);transform:translateX(0);will-change:transform,width;z-index:0;pointer-events:none;
+  transition:transform .25s cubic-bezier(.22,1,.36,1),width .25s cubic-bezier(.22,1,.36,1),height .25s cubic-bezier(.22,1,.36,1),top .25s cubic-bezier(.22,1,.36,1)}
+.seg{position:relative;z-index:1;flex:1;border:none;background:transparent;color:var(--text-2);font-family:inherit;
+  font-size:12px;font-weight:800;padding:9px 4px;border-radius:var(--r-pill);cursor:pointer;white-space:nowrap;
+  transition:color .25s cubic-bezier(.22,1,.36,1)}
+.seg.active{color:var(--text)}
+@media(prefers-reduced-motion:reduce){.seg-pill,.seg{transition:none!important}}
 
 /* ============================ DAILY (matches) ============================ */
 #sub-daily{touch-action:pan-y}
