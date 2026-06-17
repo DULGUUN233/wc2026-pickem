@@ -41,6 +41,7 @@ function mapFD(m) {
     awayFlag: flagFor(m.awayTeam?.name) || m.awayTeam?.crest || null,
     date: dateUB(m.utcDate),
     time: hhmmUB(m.utcDate),
+    ts: Date.parse(m.utcDate) || 0, // эхлэх цаг (epoch ms)
     status: finished ? 'FT' : live ? 'LIVE' : 'NS',
     finished,
     homeScore: finished ? num(ft.home) : null,
@@ -89,10 +90,21 @@ async function ensureAll() {
 // Background polling: live үед 30с, өнөөдөр тоглолттой бол 60с, эс бөгөөс 5 мин
 function nextPollDelay() {
   if (!_all) return 30 * 1000;
-  const todays = _all.byDate[todayUlaanbaatar()] || [];
-  if (todays.some((m) => m.status === 'LIVE')) return 30 * 1000;
-  if (todays.some((m) => !m.finished)) return 60 * 1000;
-  return 5 * 60 * 1000;
+  const now = Date.now();
+  const RESULT_WINDOW = 95 * 60 * 1000; // эхэлснээс 95 мин-ийн дараа дүн хүлээж эхэлнэ
+  let awaiting = false;        // 95 мин болсон ч дуусаагүй тоглолт байна уу
+  let nextWindow = Infinity;   // дараагийн window хэзээ нээгдэх
+  for (const d in _all.byDate) {
+    for (const m of _all.byDate[d]) {
+      if (m.finished || !m.ts) continue;
+      const start = m.ts + RESULT_WINDOW;
+      if (now >= start) awaiting = true;
+      else nextWindow = Math.min(nextWindow, start);
+    }
+  }
+  if (awaiting) return 30 * 1000; // дүн ирэх хүртэл 30с тутам
+  if (nextWindow !== Infinity) return Math.max(30 * 1000, Math.min(nextWindow - now, 30 * 60 * 1000));
+  return 30 * 60 * 1000; // ойрын тоглолтгүй
 }
 export function startPolling() {
   if (!process.env.FOOTBALL_DATA_KEY?.trim()) return; // түлхүүргүй бол утгагүй
@@ -119,6 +131,7 @@ async function fromSportsDb(date) {
         homeAbbr: abbrFor(e.strHomeTeam), awayAbbr: abbrFor(e.strAwayTeam),
         homeFlag: flagFor(e.strHomeTeam), awayFlag: flagFor(e.strAwayTeam),
         date: e.dateEvent, time: (e.strTime || '').slice(0, 5),
+        ts: Date.parse(e.strTimestamp || `${e.dateEvent}T${e.strTime || '00:00:00'}Z`) || 0,
         status: finished ? 'FT' : 'NS', finished,
         homeScore: finished ? num(e.intHomeScore) : null, awayScore: finished ? num(e.intAwayScore) : null,
       };

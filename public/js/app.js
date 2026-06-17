@@ -272,7 +272,9 @@ function fmtDate(dateStr) {
   return `${d.getUTCMonth() + 1}-р сар ${d.getUTCDate()}, ${days[d.getUTCDay()]}`;
 }
 function canPredict(m) {
-  return !m.finished && /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
+  if (m.finished) return false;
+  if (m.ts) return Date.now() < m.ts; // эхлэх цагт таамаг хаагдана
+  return /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
 }
 function scoreMatchClient(p, h, a) {
   if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
