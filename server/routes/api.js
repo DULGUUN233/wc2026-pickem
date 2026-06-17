@@ -35,31 +35,51 @@ async function resultsMap() {
   return map;
 }
 
-// Тоглогчдыг оноогоор эрэмбэлж rank өгнө.
-async function rankPlayers(players, results) {
-  const ids = players.map((p) => String(p._id));
-  const pickDocs = await collections.picks().find({ playerId: { $in: ids } }).toArray();
-  const byPlayer = {};
-  for (const d of pickDocs) byPlayer[d.playerId] = d.picks;
-  const mpDocs = await collections.matchPicks().find({ playerId: { $in: ids } }).toArray();
-  const mpByPlayer = {};
-  for (const d of mpDocs) mpByPlayer[d.playerId] = d.picks;
-  const matchResults = await fetchAllResults();
-  const rows = players.map((p) => {
-    const picks = byPlayer[String(p._id)] || {};
+// Мөрүүдийг оноогоор эрэмбэлж rank өгнө.
+function rerank(rows) {
+  const out = rows.slice().sort(
+    (a, b) => b.total - a.total || b.perfectGroups - a.perfectGroups || a.nickname.localeCompare(b.nickname)
+  );
+  out.forEach((r, i) => (r.rank = i + 1));
+  return out;
+}
+
+/* ---- Онооны самбарын сервер cache (Redis маягийн in-memory) ----
+   Бүх тоглогчийн оноог нэг л удаа тооцоод хадгална. Picks/matchpicks/дүн
+   өөрчлөгдөхөд invalidate хийнэ; эс бөгөөс TTL дуустал маш хурдан буцаана. */
+let _sb = null; // { at, byId, scoredGroups }
+let _sbDirty = true;
+const SB_TTL = 60 * 1000;
+function invalidateScoreboard() { _sbDirty = true; }
+
+async function getScoreboard() {
+  if (_sb && !_sbDirty && Date.now() - _sb.at < SB_TTL) return _sb;
+  const [results, matchResults, players, pickDocs, mpDocs] = await Promise.all([
+    resultsMap(),
+    fetchAllResults(),
+    collections.players().find({}).toArray(),
+    collections.picks().find({}).toArray(),
+    collections.matchPicks().find({}).toArray(),
+  ]);
+  const picksBy = {}; for (const d of pickDocs) picksBy[d.playerId] = d.picks;
+  const mpBy = {}; for (const d of mpDocs) mpBy[d.playerId] = d.picks;
+  const byId = {};
+  for (const p of players) {
+    const id = String(p._id);
+    const picks = picksBy[id] || {};
     const s = scorePicks(picks, results);
     let dailyPts = 0;
-    const mp = mpByPlayer[String(p._id)] || {};
+    const mp = mpBy[id] || {};
     for (const [mid, pred] of Object.entries(mp)) {
       const r = matchResults[mid];
       if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a);
     }
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
-    return { playerId: String(p._id), nickname: p.nickname, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
-  });
-  rows.sort((a, b) => b.total - a.total || b.perfectGroups - a.perfectGroups || a.nickname.localeCompare(b.nickname));
-  rows.forEach((r, i) => (r.rank = i + 1));
-  return rows;
+    byId[id] = { playerId: id, nickname: p.nickname, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
+  }
+  _sb = { at: Date.now(), byId, scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length };
+  _sbDirty = false;
+  return _sb;
 }
 
 async function requirePlayer(req) {
@@ -88,6 +108,7 @@ router.post(
     const token = randomToken();
     const doc = { nickname, nicknameLower, token, createdAt: new Date() };
     const { insertedId } = await collections.players().insertOne(doc);
+    invalidateScoreboard();
     res.json({ player: { id: String(insertedId), nickname }, token });
   })
 );
@@ -115,6 +136,7 @@ router.post(
     const token = randomToken();
     const doc = { usionId, nickname, nicknameLower: nickname.toLowerCase(), token, avatar: req.body?.avatar || null, createdAt: new Date() };
     const { insertedId } = await collections.players().insertOne(doc);
+    invalidateScoreboard();
     res.json({ player: { id: String(insertedId), nickname }, token });
   })
 );
@@ -123,8 +145,8 @@ router.get(
   '/me',
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
-    const rows = await rankPlayers([player], await resultsMap());
-    res.json({ player: publicPlayer(player), total: rows[0]?.total || 0 });
+    const sb = await getScoreboard();
+    res.json({ player: publicPlayer(player), total: sb.byId[String(player._id)]?.total || 0 });
   })
 );
 
@@ -204,6 +226,7 @@ router.put(
       { $set: { playerId: String(player._id), picks: next, updatedAt: new Date() } },
       { upsert: true }
     );
+    invalidateScoreboard();
     res.json({ picks: next, skipped });
   })
 );
@@ -238,6 +261,7 @@ router.put(
       { $set: { playerId: String(player._id), picks: next, updatedAt: new Date() } },
       { upsert: true }
     );
+    invalidateScoreboard();
     res.json({ picks: next });
   })
 );
@@ -263,6 +287,7 @@ router.post(
 
     if (order == null || (Array.isArray(order) && order.length === 0)) {
       await collections.results().deleteOne({ _id: group });
+      invalidateScoreboard();
       return res.json({ ok: true, cleared: group });
     }
     if (!validateGroupOrder(group, order)) throw new HttpError(400, 'Эрэмбэ буруу байна');
@@ -271,6 +296,7 @@ router.post(
       { $set: { order, updatedAt: new Date() } },
       { upsert: true }
     );
+    invalidateScoreboard();
     res.json({ ok: true, group });
   })
 );
@@ -332,17 +358,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
     const pid = String(player._id);
-    const results = await resultsMap();
+    const sb = await getScoreboard();
     const leagues = await collections.leagues().find({ memberIds: pid }).toArray();
-    const out = [];
-    for (const l of leagues) {
-      const members = await collections
-        .players()
-        .find({ _id: { $in: l.memberIds.map((id) => new ObjectId(id)) } })
-        .toArray();
-      const rows = await rankPlayers(members, results);
+    const out = leagues.map((l) => {
+      const rows = rerank(l.memberIds.map((id) => sb.byId[id]).filter(Boolean));
       const mine = rows.find((r) => r.playerId === pid);
-      out.push({
+      return {
         id: String(l._id),
         name: l.name,
         code: l.code,
@@ -350,8 +371,8 @@ router.get(
         owner: l.ownerId === pid,
         myRank: mine ? mine.rank : null,
         myTotal: mine ? mine.total : 0,
-      });
-    }
+      };
+    });
     res.json({ leagues: out });
   })
 );
@@ -362,23 +383,22 @@ router.get(
   '/leaderboard',
   asyncHandler(async (req, res) => {
     const code = String(req.query.league || '').trim().toUpperCase();
-    const results = await resultsMap();
+    const sb = await getScoreboard();
 
-    let playerFilter = {};
     let leagueInfo = null;
+    let rows;
     if (code) {
       const league = await collections.leagues().findOne({ code });
       if (!league) throw new HttpError(404, 'Лиг олдсонгүй');
-      playerFilter = { _id: { $in: league.memberIds.map((id) => new ObjectId(id)) } };
       leagueInfo = { name: league.name, code: league.code, memberCount: league.memberIds.length };
+      rows = rerank(league.memberIds.map((id) => sb.byId[id]).filter(Boolean));
+    } else {
+      rows = rerank(Object.values(sb.byId));
     }
-
-    const players = await collections.players().find(playerFilter).toArray();
-    const rows = await rankPlayers(players, results);
 
     res.json({
       league: leagueInfo,
-      scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length,
+      scoredGroups: sb.scoredGroups,
       totalGroups: GROUP_IDS.length,
       players: rows,
     });
