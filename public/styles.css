@@ -218,8 +218,6 @@ img{display:block}
 /* ============================ DAILY (matches) ============================ */
 .daily-bar{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 2px 14px}
 .day-label{font-weight:800;font-size:15px;min-width:160px;text-align:center}
-.daily-pts{background:linear-gradient(135deg,var(--purple),var(--red));color:#fff;border-radius:var(--radius);
-  padding:11px 14px;text-align:center;font-weight:800;font-size:14px;margin:0 2px 14px}
 .matches{display:flex;flex-direction:column;gap:12px}
 .mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:14px}
 .mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:11.5px;font-weight:700;color:var(--text-2)}

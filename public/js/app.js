@@ -291,15 +291,9 @@ function renderDaily() {
   $('#dayLabel').textContent = state.dailyDate ? fmtDate(state.dailyDate) : '—';
   const wrap = $('#matches');
   const ms = state.dailyMatches;
-  if (!ms.length) { wrap.innerHTML = '<div class="empty">Энэ өдөр World Cup тоглолт алга.</div>'; $('#dailyPts').hidden = true; return; }
+  if (!ms.length) { wrap.innerHTML = '<div class="empty">Энэ өдөр World Cup тоглолт алга.</div>'; return; }
   wrap.innerHTML = '';
-  let pts = 0, scored = 0;
-  for (const m of ms) {
-    wrap.appendChild(matchCard(m));
-    if (m.finished && state.matchPicks[m.id]) { pts += scoreMatchClient(state.matchPicks[m.id], m.homeScore, m.awayScore); scored++; }
-  }
-  $('#dailyPts').hidden = !scored;
-  if (scored) $('#dailyPts').textContent = `Энэ өдрийн оноо: ${pts}`;
+  for (const m of ms) wrap.appendChild(matchCard(m));
 }
 
 function flagImg(src) {
