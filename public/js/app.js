@@ -396,6 +396,8 @@ function successCheck() {
       <path d="M15 24.5 L21.5 31 L33 18" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg></span>`;
   document.body.appendChild(host);
+  const seg = document.querySelector('.segmented'); // табуудын доор байрлуулна
+  if (seg) host.style.paddingTop = Math.round(seg.getBoundingClientRect().bottom + 10) + 'px';
   const chk = host.firstElementChild;
   requestAnimationFrame(() => chk.setAttribute('data-state', 'in'));
   setTimeout(() => { chk.style.transition = 'opacity .3s ease'; chk.style.opacity = '0'; }, 900);

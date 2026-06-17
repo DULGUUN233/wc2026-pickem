@@ -293,22 +293,21 @@ img{display:block}
 
 /* ============================ SUCCESS CHECK ============================ */
 /* Хадгалсан үед төв дээр гарч ирэх ногоон check (бичиггүй) */
-.t-check-host{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.t-check-host{position:fixed;left:0;right:0;top:0;z-index:500;display:flex;align-items:flex-start;justify-content:center;
+  pointer-events:none;padding-top:120px}
 .t-success-check{display:inline-block;transform-origin:center;opacity:0;will-change:transform,opacity,filter}
-.t-success-check svg{display:block;overflow:visible;width:84px;height:84px;filter:drop-shadow(0 8px 24px rgba(16,185,129,.35))}
+.t-success-check svg{display:block;overflow:visible;width:40px;height:40px;filter:drop-shadow(0 6px 18px rgba(16,185,129,.4))}
 .t-success-check svg path{stroke-dasharray:30;stroke-dashoffset:30}
 .t-success-check[data-state="in"]{
   animation:
     t-check-fade   500ms cubic-bezier(.22,1,.36,1) forwards,
     t-check-rotate 500ms cubic-bezier(.22,1,.36,1) forwards,
-    t-check-blur   500ms cubic-bezier(.22,1,.36,1) forwards,
-    t-check-bob    500ms cubic-bezier(.34,1.35,.64,1) forwards;
+    t-check-blur   500ms cubic-bezier(.22,1,.36,1) forwards;
 }
 .t-success-check[data-state="in"] svg path{animation:t-check-draw 500ms cubic-bezier(.22,1,.36,1) 80ms forwards}
 @keyframes t-check-fade{from{opacity:0}to{opacity:1}}
 @keyframes t-check-rotate{from{transform:rotate(80deg)}to{transform:rotate(0)}}
 @keyframes t-check-blur{from{filter:blur(10px)}to{filter:blur(0)}}
-@keyframes t-check-bob{from{translate:0 40px}to{translate:0 0}}
 @keyframes t-check-draw{to{stroke-dashoffset:0}}
 @media(prefers-reduced-motion:reduce){
   .t-success-check{animation:none!important;opacity:1}
