@@ -128,7 +128,16 @@ router.post(
     const usionId = String(req.body?.usionId || '').trim();
     if (!usionId) throw new HttpError(400, 'usionId шаардлагатай');
     const existing = await collections.players().findOne({ usionId });
-    if (existing) return res.json({ player: publicPlayer(existing), token: existing.token });
+    if (existing) {
+      // Дахин нэвтрэх үед профайл зургийг шинэчилнэ (Usion дээр өөрчлөгдсөн/шинээр гарсан бол)
+      const avatar = req.body?.avatar || null;
+      if (avatar && avatar !== existing.avatar) {
+        await collections.players().updateOne({ _id: existing._id }, { $set: { avatar } });
+        existing.avatar = avatar;
+        invalidateScoreboard();
+      }
+      return res.json({ player: publicPlayer(existing), token: existing.token });
+    }
     let base = normalizeNickname(req.body?.name) || 'Тоглогч';
     if (base.length > 24) base = base.slice(0, 24);
     if (base.length < 2) base = 'Тоглогч';
