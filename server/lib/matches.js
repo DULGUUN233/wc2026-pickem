@@ -28,9 +28,13 @@ const dateUB = (iso) => new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toIS
 
 /* ---- football-data.org: бүх WC матчийг нэг дуудлагаар, огноогоор бүлэглэж cache ---- */
 function mapFD(m) {
-  const finished = m.status === 'FINISHED';
-  const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
   const ft = m.score?.fullTime || {};
+  const ts = Date.parse(m.utcDate) || 0; // эхлэх цаг (epoch ms)
+  const hasScore = ft.home != null && ft.away != null;
+  // football-data заримдаа дууссан матчийг IN_PLAY-д ГАЦААДАГ. Тиймээс:
+  // status FINISHED, ЭСВЭЛ дүнтэй бөгөөд эхэлснээс 3 цаг өнгөрсөн бол дууссан гэж үзнэ.
+  const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + 3 * 3600 * 1000);
+  const live = !finished && (m.status === 'IN_PLAY' || m.status === 'PAUSED');
   return {
     id: String(m.id),
     home: m.homeTeam?.name || 'TBD',
@@ -41,7 +45,7 @@ function mapFD(m) {
     awayFlag: flagFor(m.awayTeam?.name) || m.awayTeam?.crest || null,
     date: dateUB(m.utcDate),
     time: hhmmUB(m.utcDate),
-    ts: Date.parse(m.utcDate) || 0, // эхлэх цаг (epoch ms)
+    ts,
     status: finished ? 'FT' : live ? 'LIVE' : 'NS',
     finished,
     homeScore: finished ? num(ft.home) : null,
