@@ -327,15 +327,17 @@ function stepperHtml(side, val) {
 function matchCard(m) {
   const card = el('div', 'mcard');
   const predictable = canPredict(m);
-  const when = m.finished ? 'Дууссан' : (m.time || ''); // оноон дээр төвд: дууссан/цаг
+  // оноон дээр төвд: дууссан → Дууссан, эхлээгүй → цаг, эхэлсэн (live) → LIVE
+  const when = m.finished ? 'Дууссан' : predictable ? (m.time || '') : 'LIVE';
   const pick = state.matchPicks[m.id];          // ажлын таамаг (h/a нь тоо эсвэл undefined)
   const saved = state.matchPicksSaved[m.id];     // хадгалагдсан таамаг (бүтэн)
   const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm" title="${m.home}">${m.homeAbbr || m.home}</span></div>`;
   const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm" title="${m.away}">${m.awayAbbr || m.away}</span></div>`;
   let mid;
   if (predictable) mid = `<div class="mc-score">${stepperHtml('h', pick?.h)}<span class="mc-colon">:</span>${stepperHtml('a', pick?.a)}</div>`;
-  // Дууссан: төвд МИНИЙ ТААМАГ (таамаглаагүй бол жинхэнэ дүн)
-  else if (m.finished) mid = `<div class="mc-final">${saved ? `${saved.h} : ${saved.a}` : `${m.homeScore} : ${m.awayScore}`}</div>`;
+  // Эхэлсэн/дууссан үед төвд МИНИЙ ТААМАГ; таамаглаагүй бол дууссанд жинхэнэ дүн, live-д VS
+  else if (saved) mid = `<div class="mc-final">${saved.h} : ${saved.a}</div>`;
+  else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
   else mid = `<div class="mc-final" style="font-size:16px;color:var(--text-3)">VS</div>`;
 
   card.innerHTML = `
