@@ -48,4 +48,5 @@ export const api = {
   myLeagues: () => request('GET', '/leagues'),
   leaderboard: (leagueCode) =>
     request('GET', '/leaderboard' + (leagueCode ? `?league=${encodeURIComponent(leagueCode)}` : '')),
+  playerProfile: (id) => request('GET', '/players/' + id),
 };

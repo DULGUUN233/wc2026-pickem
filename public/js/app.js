@@ -462,6 +462,7 @@ function setupSwipe() {
 async function loadLeagues() {
   $('#leagueHub').hidden = false;
   $('#leagueDetail').hidden = true;
+  $('#profileView').hidden = true;
   await loadMyLeagues();
 }
 
@@ -499,6 +500,7 @@ function leagueCard(o) {
 async function showLeagueDetail(code, name) {
   $('#leagueHub').hidden = true;
   $('#leagueDetail').hidden = false;
+  $('#profileView').hidden = true;
   $('#ldName').textContent = name;
   const board = $('#ldBoard'); board.innerHTML = '<div class="empty">Уншиж байна…</div>';
   try {
@@ -532,6 +534,7 @@ function renderBoard(board, players) {
         <div class="pod-ava">${avatarHtml(r)}<span class="pod-rank">${r.rank}</span></div>
         <div class="pod-name">${r.nickname}</div>
         <div class="pod-pts">${r.total} оноо</div>`;
+      pod.addEventListener('click', () => openProfile(r.playerId));
       podium.appendChild(pod);
     }
     board.appendChild(podium);
@@ -547,10 +550,63 @@ function renderBoard(board, players) {
       d.innerHTML = `<div class="pos">${r.rank}</div>
         <div class="who">${avatarHtml(r)}<div class="nm">${r.nickname}</div></div>
         <div class="pts">${r.total}<small>ОНОО</small></div>`;
+      d.addEventListener('click', () => openProfile(r.playerId));
       list.appendChild(d);
     }
     board.appendChild(list);
   }
+}
+
+// Тоглогчийн профайл (leaderboard-аас дарахад) — нэр/зураг/оноо + илгээсэн таамаг
+async function openProfile(playerId) {
+  if (!playerId) return;
+  $('#leagueHub').hidden = true;
+  $('#leagueDetail').hidden = true;
+  $('#profileView').hidden = false;
+  const body = $('#pvBody');
+  body.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  try {
+    const data = await api.playerProfile(playerId);
+    renderProfile(body, data);
+  } catch (e) { body.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+function renderProfile(body, data) {
+  const p = data.player;
+  const init = (p.nickname || '?').charAt(0).toUpperCase();
+  const ava = p.avatar ? `<img src="${p.avatar}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+  let html = `<div class="pv-hd"><span class="ava pv-ava">${init}${ava}</span>
+    <div><div class="pv-name">${p.nickname}</div><div class="pv-total">${p.total} оноо</div></div></div>`;
+
+  // Өдрийн матчийн таамаг
+  html += `<div class="pv-sec">Өдрийн таамаг</div>`;
+  if (data.matches.length) {
+    html += '<div class="pv-list">';
+    for (const m of data.matches) {
+      const right = m.finished
+        ? `<span class="pv-rt">${m.homeScore}:${m.awayScore}<span class="mc-pts p${m.points}">+${m.points}</span></span>`
+        : `<span class="pv-soon">${m.time}</span>`;
+      html += `<div class="pv-row"><span class="pv-mt">${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}</span>${right}</div>`;
+    }
+    html += '</div>';
+  } else html += '<div class="empty">Таамаг алга.</div>';
+
+  // Групп таамаг
+  if (data.groups.length) {
+    html += `<div class="pv-sec">Групп таамаг</div>`;
+    for (const g of data.groups) {
+      const teams = state.cfg?.groups?.[g.group] || [];
+      const byId = Object.fromEntries(teams.map((t) => [t.id, t]));
+      const items = g.order.map((id, i) => {
+        const t = byId[id];
+        const ok = g.actual ? g.actual[i] === id : null;
+        return `<span class="pv-gt ${ok === true ? 'ok' : ok === false ? 'no' : ''}">${i + 1}. ${t?.abbr || t?.name || id}${ok === true ? ' ✓' : ''}</span>`;
+      }).join('');
+      const pts = g.points == null ? '' : `<span class="gpts">+${g.points}</span>`;
+      html += `<div class="pv-grp"><div class="pv-grp-hd">Групп ${g.group} ${pts}</div><div>${items}</div></div>`;
+    }
+  }
+  body.innerHTML = html;
 }
 
 function copyCode(code) { navigator.clipboard?.writeText(code).then(() => toast(`Код хуулагдлаа: ${code}`, 'ok'), () => toast(`Код: ${code}`)); }
@@ -651,6 +707,7 @@ function wire() {
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
   $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });
+  $('#pvBack').addEventListener('click', () => { $('#profileView').hidden = true; $('#leagueDetail').hidden = false; });
   $('#dayPrev').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, -1)));
   $('#dayNext').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, 1)));
   setupSwipe();

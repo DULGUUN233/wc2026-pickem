@@ -2,8 +2,8 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
-import { scorePicks, scoreMatch, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
+import { scorePicks, scoreMatch, scoreGroup, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
+import { fetchMatches, fetchAllResults, allMatches, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -156,6 +156,56 @@ router.get(
     const player = await requirePlayer(req);
     const sb = await getScoreboard();
     res.json({ player: publicPlayer(player), total: sb.byId[String(player._id)]?.total || 0 });
+  })
+);
+
+// Тоглогчийн нийтийн профайл + илгээсэн таамаг (leaderboard-аас дарж харна)
+router.get(
+  '/players/:id',
+  asyncHandler(async (req, res) => {
+    let player = null;
+    try { player = await collections.players().findOne({ _id: new ObjectId(req.params.id) }); } catch {}
+    if (!player) throw new HttpError(404, 'Тоглогч олдсонгүй');
+    const pid = String(player._id);
+    const [mpDoc, pickDoc, results, allMs, groupResults, sb] = await Promise.all([
+      collections.matchPicks().findOne({ playerId: pid }),
+      collections.picks().findOne({ playerId: pid }),
+      fetchAllResults(),
+      allMatches(),
+      resultsMap(),
+      getScoreboard(),
+    ]);
+    const mById = {};
+    for (const m of allMs) mById[m.id] = m;
+
+    const matches = [];
+    for (const [mid, pick] of Object.entries(mpDoc?.picks || {})) {
+      const m = mById[mid];
+      if (!m) continue;
+      const r = results[mid];
+      const fin = !!r?.finished;
+      matches.push({
+        id: mid, home: m.home, away: m.away, homeAbbr: m.homeAbbr, awayAbbr: m.awayAbbr,
+        homeFlag: m.homeFlag, awayFlag: m.awayFlag, date: m.date, time: m.time, finished: fin,
+        pick, homeScore: fin ? r.h : null, awayScore: fin ? r.a : null,
+        points: fin ? scoreMatch(pick, r.h, r.a) : null,
+      });
+    }
+    matches.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+    const groups = [];
+    for (const [g, order] of Object.entries(pickDoc?.picks || {})) {
+      if (!Array.isArray(order) || !order.length) continue;
+      const actual = groupResults[g] || null;
+      groups.push({ group: g, order, actual, points: actual ? scoreGroup(order, actual).points : null });
+    }
+    groups.sort((a, b) => a.group.localeCompare(b.group));
+
+    res.json({
+      player: { id: pid, nickname: player.nickname, avatar: player.avatar || null, total: sb.byId[pid]?.total || 0 },
+      matches,
+      groups,
+    });
   })
 );
 
