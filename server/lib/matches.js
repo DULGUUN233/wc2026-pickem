@@ -31,9 +31,12 @@ function mapFD(m) {
   const ft = m.score?.fullTime || {};
   const ts = Date.parse(m.utcDate) || 0; // эхлэх цаг (epoch ms)
   const hasScore = ft.home != null && ft.away != null;
-  // football-data заримдаа дууссан матчийг IN_PLAY-д ГАЦААДАГ. Тиймээс:
-  // status FINISHED, ЭСВЭЛ дүнтэй бөгөөд эхэлснээс 3 цаг өнгөрсөн бол дууссан гэж үзнэ.
-  const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + 3 * 3600 * 1000);
+  // football-data заримдаа дууссан матчийг IN_PLAY-д ГАЦААДАГ. Тиймээс status FINISHED,
+  // ЭСВЭЛ дүнтэй бөгөөд тоглолт дуусах хугацаа өнгөрсөн бол дууссан гэж үзнэ.
+  // Групп шат нэмэлт цаггүй (2ц30м), хожлын тор нэмэлт цаг/пенальтитай (3ц).
+  const knockout = m.stage && m.stage !== 'GROUP_STAGE';
+  const overMs = (knockout ? 3 : 2.5) * 3600 * 1000;
+  const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + overMs);
   const live = !finished && (m.status === 'IN_PLAY' || m.status === 'PAUSED');
   return {
     id: String(m.id),
