@@ -100,12 +100,6 @@ async function afterLogin() {
 
 function showPlayerChip() {
   $('#playerChip').hidden = false;
-  const av = $('#playerAvatar');
-  if (state.player.avatar) {
-    av.innerHTML = `<img src="${state.player.avatar}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
-  } else {
-    av.textContent = (state.player.nickname || '?').charAt(0);
-  }
   $('#playerName').textContent = '…';
   refreshScore();
 }
