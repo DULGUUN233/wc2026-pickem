@@ -601,7 +601,8 @@ function renderProfile(body, data) {
       const items = g.order.map((id, i) => {
         const t = byId[id];
         const ok = g.actual ? g.actual[i] === id : null;
-        return `<span class="pv-gt ${ok === true ? 'ok' : ok === false ? 'no' : ''}">${i + 1}. ${t?.abbr || t?.name || id}${ok === true ? ' ✓' : ''}</span>`;
+        const flag = t?.code ? `<img class="pv-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+        return `<span class="pv-gt ${ok === true ? 'ok' : ok === false ? 'no' : ''}">${i + 1}.${flag}${t?.abbr || t?.name || id}${ok === true ? ' ✓' : ''}</span>`;
       }).join('');
       const pts = g.points == null ? '' : `<span class="gpts">+${g.points}</span>`;
       html += `<div class="pv-grp"><div class="pv-grp-hd">Групп ${g.group} ${pts}</div><div>${items}</div></div>`;
