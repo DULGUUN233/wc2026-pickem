@@ -235,6 +235,7 @@ img{display:block}
 .pv-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px}
 .pv-mt{font-size:14px;color:var(--text-2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pv-mt b{color:var(--text);font-size:15px;margin:0 3px}
+.pv-flag{display:inline-block;width:18px;height:13px;border-radius:2px;object-fit:cover;vertical-align:middle;margin:0 4px;box-shadow:0 0 0 1px rgba(255,255,255,.1)}
 .pv-res{font-size:13.5px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
 .pv-res.soon{font-size:12px;font-weight:700;color:var(--text-3)}
 .pv-pts{text-align:right}

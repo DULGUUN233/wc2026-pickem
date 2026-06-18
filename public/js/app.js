@@ -579,12 +579,13 @@ function renderProfile(body, data) {
   html += `<div class="pv-sec">Өдрийн таамаг</div>`;
   if (data.matches.length) {
     html += `<div class="pv-cols"><span>Таамаг</span><span>Үр дүн</span><span>Авсан оноо</span></div>`;
+    const fl = (s) => (s ? `<img class="pv-flag" src="${s}" alt="" loading="lazy" onerror="this.remove()">` : '');
     html += '<div class="pv-list">';
     for (const m of data.matches) {
       const res = m.finished ? `${m.homeScore}:${m.awayScore}` : m.time;
       const pts = m.finished ? `<span class="mc-pts p${m.points}">+${m.points}</span>` : '';
       html += `<div class="pv-row">
-        <span class="pv-mt">${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}</span>
+        <span class="pv-mt">${fl(m.homeFlag)}${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}${fl(m.awayFlag)}</span>
         <span class="pv-res${m.finished ? '' : ' soon'}">${res}</span>
         <span class="pv-pts">${pts}</span></div>`;
     }
