@@ -356,13 +356,17 @@ function matchCard(m) {
     card.appendChild(f);
   }
   if (predictable) {
-    card.querySelectorAll('.stepper button').forEach((b) => b.addEventListener('click', () => stepScore(m.id, b.dataset.side, Number(b.dataset.delta))));
+    card.classList.add('predictable');
+    card.addEventListener('click', () => card.classList.toggle('open')); // дарахад +/− доошоо сунана
+    card.querySelectorAll('.stepper button').forEach((b) =>
+      b.addEventListener('click', (e) => { e.stopPropagation(); stepScore(m.id, b.dataset.side, Number(b.dataset.delta)); })
+    );
     const dirty = (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null);
     if (dirty) {
       const complete = typeof pick?.h === 'number' && typeof pick?.a === 'number';
       const f = el('div', 'mc-save');
       f.innerHTML = `<button class="btn btn-accent mc-savebtn"${complete ? '' : ' disabled'}>Хадгалах</button>`;
-      f.querySelector('button').addEventListener('click', () => saveMatch(m.id));
+      f.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); saveMatch(m.id); });
       card.appendChild(f);
     }
   }
@@ -387,7 +391,7 @@ function patchMatchCard(id) {
     if (!saveEl) {
       saveEl = el('div', 'mc-save');
       saveEl.innerHTML = `<button class="btn btn-accent mc-savebtn">Хадгалах</button>`;
-      saveEl.querySelector('button').addEventListener('click', () => saveMatch(id));
+      saveEl.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); saveMatch(id); });
       card.appendChild(saveEl);
     }
     saveEl.querySelector('button').disabled = !complete;
