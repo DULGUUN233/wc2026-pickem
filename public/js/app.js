@@ -335,10 +335,9 @@ function matchCard(m) {
   const away = `<div class="mc-team away">${flagImg(m.awayFlag)}<span class="nm" title="${m.away}">${m.awayAbbr || m.away}</span></div>`;
   let mid;
   if (predictable) mid = `<div class="mc-score">${stepperHtml('h', pick?.h)}<span class="mc-colon">:</span>${stepperHtml('a', pick?.a)}</div>`;
-  // Эхэлсэн/дууссан үед төвд МИНИЙ ТААМАГ; таамаглаагүй бол дууссанд жинхэнэ дүн, live-д VS
+  // Эхэлсэн/дууссан үед төвд МИНИЙ ТААМАГ; таамаглаагүй бол "? : ?"
   else if (saved) mid = `<div class="mc-final">${saved.h} : ${saved.a}</div>`;
-  else if (m.finished) mid = `<div class="mc-final">${m.homeScore} : ${m.awayScore}</div>`;
-  else mid = `<div class="mc-final" style="font-size:16px;color:var(--text-3)">VS</div>`;
+  else mid = `<div class="mc-final" style="color:var(--text-3)">? : ?</div>`;
 
   card.innerHTML = `
     <div class="mc-when">${when}</div>
@@ -349,6 +348,11 @@ function matchCard(m) {
     card.classList.add(pt === 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
     f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
+    card.appendChild(f);
+  } else if (m.finished) {
+    // Таамаглаагүй дууссан: дүнг бусад картын адил доор нь (онооны badge-гүй)
+    const f = el('div', 'mc-pred');
+    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b>`;
     card.appendChild(f);
   }
   if (predictable) {
