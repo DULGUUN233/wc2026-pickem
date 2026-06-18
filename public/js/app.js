@@ -83,6 +83,7 @@ function tryUsionLogin() {
           const { player, token } = await api.usionAuth(uid, uname, avatar);
           setToken(token);
           state.player = player;
+          if (avatar) state.player.avatar = avatar; // chip-д профайл зураг харуулахад
         }
       } catch { /* алдвал nickname горимд унана */ }
       finish();
@@ -99,7 +100,12 @@ async function afterLogin() {
 
 function showPlayerChip() {
   $('#playerChip').hidden = false;
-  $('#playerAvatar').textContent = state.player.nickname.charAt(0);
+  const av = $('#playerAvatar');
+  if (state.player.avatar) {
+    av.innerHTML = `<img src="${state.player.avatar}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
+  } else {
+    av.textContent = (state.player.nickname || '?').charAt(0);
+  }
   $('#playerName').textContent = '…';
   refreshScore();
 }
