@@ -75,7 +75,7 @@ async function getScoreboard() {
       if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a);
     }
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
-    byId[id] = { playerId: id, nickname: p.nickname, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
+    byId[id] = { playerId: id, nickname: p.nickname, avatar: p.avatar || null, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
   }
   _sb = { at: Date.now(), rv: getResultsVersion(), byId, scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length };
   _sbDirty = false;

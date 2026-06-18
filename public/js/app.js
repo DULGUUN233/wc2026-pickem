@@ -501,17 +501,49 @@ async function showLeagueDetail(code, name) {
   } catch (e) { board.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
+const CROWN = '<svg class="crown" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.8 11.2a1 1 0 0 1-1 .8H5.8a1 1 0 0 1-1-.8L3 7z"/></svg>';
+
+// Аватар: Usion профайл зураг (алдвал нэрний эхний үсэг рүү буцна)
+function avatarHtml(r) {
+  const init = (r.nickname || '?').trim().charAt(0).toUpperCase() || '?';
+  const img = r.avatar ? `<img src="${r.avatar}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">` : '';
+  return `<span class="ava">${init}${img}</span>`;
+}
+
 function renderBoard(board, players) {
   if (!players.length) { board.innerHTML = '<div class="empty">Тоглогч алга.</div>'; return; }
   board.innerHTML = '';
-  for (const r of players) {
-    const me = state.player && r.playerId === state.player.id;
-    const d = el('div', 'brow' + (me ? ' me' : ''));
-    const posCls = r.rank <= 3 ? `pos medal g${r.rank}` : 'pos';
-    d.innerHTML = `<div class="${posCls}">${r.rank}</div>
-      <div class="who"><div class="nm">${r.nickname}</div></div>
-      <div class="pts">${r.total}<small>ОНОО</small></div>`;
-    board.appendChild(d);
+  const meId = state.player?.id;
+
+  // Подиум: шилдэг 3 (#2 зүүн, #1 төв, #3 баруун)
+  const top = players.slice(0, 3);
+  if (top.length) {
+    const podium = el('div', 'podium');
+    for (const r of [top[1], top[0], top[2]].filter(Boolean)) {
+      const me = r.playerId === meId;
+      const pod = el('div', `pod pod-${r.rank}` + (me ? ' me' : ''));
+      pod.innerHTML = `${r.rank === 1 ? CROWN : ''}
+        <div class="pod-ava">${avatarHtml(r)}<span class="pod-rank">${r.rank}</span></div>
+        <div class="pod-name">${r.nickname}</div>
+        <div class="pod-pts">${r.total} оноо</div>`;
+      podium.appendChild(pod);
+    }
+    board.appendChild(podium);
+  }
+
+  // Жагсаалт: 4-өөс цааш
+  const rest = players.slice(3);
+  if (rest.length) {
+    const list = el('div', 'board');
+    for (const r of rest) {
+      const me = r.playerId === meId;
+      const d = el('div', 'brow' + (me ? ' me' : ''));
+      d.innerHTML = `<div class="pos">${r.rank}</div>
+        <div class="who">${avatarHtml(r)}<div class="nm">${r.nickname}</div></div>
+        <div class="pts">${r.total}<small>ОНОО</small></div>`;
+      list.appendChild(d);
+    }
+    board.appendChild(list);
   }
 }
 
