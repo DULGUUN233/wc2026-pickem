@@ -11,8 +11,8 @@ const ALIASES = {
   'iran': 'ir', 'ir iran': 'ir', 'korea': 'kr', 'south korea': 'kr', 'korea republic': 'kr',
   'usa': 'us', 'united states': 'us', 'turkey': 'tr', 'türkiye': 'tr', 'turkiye': 'tr',
   'czech republic': 'cz', 'czechia': 'cz', 'ivory coast': 'ci', "côte d'ivoire": 'ci', "cote d'ivoire": 'ci',
-  'cape verde': 'cv', 'cabo verde': 'cv', 'dr congo': 'cd', 'congo dr': 'cd',
-  'bosnia and herzegovina': 'ba', 'bosnia & herzegovina': 'ba', 'south africa': 'za',
+  'cape verde': 'cv', 'cabo verde': 'cv', 'cape verde islands': 'cv', 'dr congo': 'cd', 'congo dr': 'cd',
+  'bosnia and herzegovina': 'ba', 'bosnia & herzegovina': 'ba', 'bosnia-herzegovina': 'ba', 'south africa': 'za',
   'scotland': 'gb-sct', 'england': 'gb-eng', 'saudi arabia': 'sa', 'new zealand': 'nz',
 };
 const codeOf = (name) => NAME_TO_CODE[(name || '').trim().toLowerCase()] || ALIASES[(name || '').trim().toLowerCase()] || null;
@@ -61,9 +61,41 @@ let _allRefreshing = false;
 let _resultsVersion = 0; // дүн өөрчлөгдөх бүрт нэмэгдэнэ (scoreboard дахин тооцоход)
 export function getResultsVersion() { return _resultsVersion; }
 
+// Баг+огнооны түлхүүр (football-data ба ESPN-ийг тулгахад)
+const matchKey = (homeName, awayName, date) => `${codeOf(homeName) || (homeName || '').toLowerCase()}|${codeOf(awayName) || (awayName || '').toLowerCase()}|${date}`;
+
+// ESPN-ээс ДУУССАН тоглолтуудыг авна (найдвартай 'post' статус, түлхүүргүй).
+// { matchKey: {h, a} } буцаана. football-data-ийн гацсан статусыг түргэн засахад.
+async function fetchEspnFinished() {
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260601-20260720',
+      { signal: AbortSignal.timeout(9000) }
+    );
+    if (!res.ok) return null;
+    const j = await res.json();
+    const map = new Map();
+    for (const e of j.events || []) {
+      if (e.status?.type?.state !== 'post') continue; // зөвхөн дууссан
+      const cs = e.competitions?.[0]?.competitors || [];
+      const home = cs.find((c) => c.homeAway === 'home');
+      const away = cs.find((c) => c.homeAway === 'away');
+      if (!home || !away) continue;
+      map.set(matchKey(home.team?.displayName, away.team?.displayName, dateUB(e.date)), {
+        h: num(home.score),
+        a: num(away.score),
+      });
+    }
+    return map;
+  } catch {
+    return null;
+  }
+}
+
 async function refreshAll() {
   const key = process.env.FOOTBALL_DATA_KEY?.trim();
   if (!key) return;
+  let fdMatches;
   try {
     const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
       headers: { 'X-Auth-Token': key },
@@ -71,18 +103,36 @@ async function refreshAll() {
     });
     if (!res.ok) return;
     const j = await res.json();
-    const byDate = {};
-    const results = {};
-    for (const m of j.matches || []) {
-      const mm = mapFD(m);
-      (byDate[mm.date] = byDate[mm.date] || []).push(mm);
-      results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore };
+    fdMatches = (j.matches || []).map(mapFD);
+  } catch {
+    return;
+  }
+
+  // ESPN-ийн найдвартай "дууссан + дүн"-ийг давхарлана (football-data IN_PLAY-д гацсаныг түргэн засна)
+  const espn = await fetchEspnFinished();
+  if (espn) {
+    for (const mm of fdMatches) {
+      if (mm.finished) continue;
+      const e = espn.get(matchKey(mm.home, mm.away, mm.date));
+      if (e && e.h != null && e.a != null) {
+        mm.finished = true;
+        mm.status = 'FT';
+        mm.homeScore = e.h;
+        mm.awayScore = e.a;
+      }
     }
-    for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const changed = !_all || JSON.stringify(results) !== JSON.stringify(_all.results);
-    _all = { at: Date.now(), byDate, results };
-    if (changed) _resultsVersion++;
-  } catch {}
+  }
+
+  const byDate = {};
+  const results = {};
+  for (const mm of fdMatches) {
+    (byDate[mm.date] = byDate[mm.date] || []).push(mm);
+    results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore };
+  }
+  for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const changed = !_all || JSON.stringify(results) !== JSON.stringify(_all.results);
+  _all = { at: Date.now(), byDate, results };
+  if (changed) _resultsVersion++;
 }
 async function ensureAll() {
   const fresh = _all && Date.now() - _all.at < TTL;
