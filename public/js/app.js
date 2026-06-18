@@ -581,12 +581,15 @@ function renderProfile(body, data) {
   // Өдрийн матчийн таамаг
   html += `<div class="pv-sec">Өдрийн таамаг</div>`;
   if (data.matches.length) {
+    html += `<div class="pv-cols"><span>Таамаг</span><span>Үр дүн</span><span>Авсан оноо</span></div>`;
     html += '<div class="pv-list">';
     for (const m of data.matches) {
-      const right = m.finished
-        ? `<span class="pv-rt">${m.homeScore}:${m.awayScore}<span class="mc-pts p${m.points}">+${m.points}</span></span>`
-        : `<span class="pv-soon">${m.time}</span>`;
-      html += `<div class="pv-row"><span class="pv-mt">${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}</span>${right}</div>`;
+      const res = m.finished ? `${m.homeScore}:${m.awayScore}` : m.time;
+      const pts = m.finished ? `<span class="mc-pts p${m.points}">+${m.points}</span>` : '';
+      html += `<div class="pv-row">
+        <span class="pv-mt">${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}</span>
+        <span class="pv-res${m.finished ? '' : ' soon'}">${res}</span>
+        <span class="pv-pts">${pts}</span></div>`;
     }
     html += '</div>';
   } else html += '<div class="empty">Таамаг алга.</div>';
