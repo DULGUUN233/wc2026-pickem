@@ -468,15 +468,14 @@ async function loadMyLeagues() {
   const wrap = $('#myLeagues');
   if (!state.player) { wrap.innerHTML = '<div class="empty">Эхлээд Таамаг хэсэгт нэрээ оруул.</div>'; return; }
   wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
-  let leagues = [], global = null;
-  try { leagues = (await api.myLeagues()).leagues; } catch {}
-  try { global = await api.leaderboard(); } catch {}
+  let data = { leagues: [], global: null };
+  try { data = await api.myLeagues(); } catch {}
+  const leagues = data.leagues || [];
   state.myLeagues = leagues;
   wrap.innerHTML = '';
   for (const l of leagues) wrap.appendChild(leagueCard({ name: l.name, code: l.code, rank: l.myRank, count: l.memberCount, owner: l.owner }));
-  if (global) {
-    const myRow = state.player && global.players.find((p) => p.playerId === state.player.id);
-    wrap.appendChild(leagueCard({ name: 'Бүх тоглогч', rank: myRow ? myRow.rank : null, count: global.players.length, special: true }));
+  if (data.global) {
+    wrap.appendChild(leagueCard({ name: 'Бүх тоглогч', rank: data.global.myRank, count: data.global.total, special: true }));
   }
 }
 

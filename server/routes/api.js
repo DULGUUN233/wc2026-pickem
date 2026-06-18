@@ -432,7 +432,9 @@ router.get(
         myTotal: mine ? mine.total : 0,
       };
     });
-    res.json({ leagues: out });
+    const allRows = rerank(Object.values(sb.byId));
+    const myGlobal = allRows.find((r) => r.playerId === pid);
+    res.json({ leagues: out, global: { myRank: myGlobal ? myGlobal.rank : null, total: allRows.length } });
   })
 );
 
