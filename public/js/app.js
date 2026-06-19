@@ -585,27 +585,54 @@ function renderProfile(body, data) {
   let html = `<div class="pv-hd"><span class="ava pv-ava">${init}${ava}</span>
     <div><div class="pv-name">${p.nickname}</div><div class="pv-total">${p.total} оноо</div></div></div>`;
 
-  // Өдрийн матчийн таамаг
+  // ===== Бяцхан dashboard =====
+  const fin = data.matches.filter((m) => m.finished);
+  const scored = fin.filter((m) => m.points >= 1).length;
+  const exact = fin.filter((m) => m.points === 2).length;
+  const acc = fin.length ? Math.round((scored / fin.length) * 100) : 0;
+  // 1) Нарийвчлал + Яг таг
+  html += `<div class="pv-dash">
+    <div class="pv-stat"><div class="pv-stat-v">${fin.length ? acc + '%' : '–'}</div><div class="pv-stat-l">Нарийвчлал</div><div class="pv-stat-s">${scored}/${fin.length} зөв</div></div>
+    <div class="pv-stat"><div class="pv-stat-v">${exact}</div><div class="pv-stat-l">Яг таг таасан</div></div>
+  </div>`;
+  // 2) Лигийн байр (бүх лиг + global)
+  html += `<div class="pv-sec">Лигийн байр</div><div class="pv-leagues">
+    <div class="pv-lg"><span class="pv-lg-n">🌍 Бүх тоглогч</span><span class="pv-lg-r">#${data.global?.rank ?? '–'}</span></div>`;
+  for (const l of data.leagues || []) html += `<div class="pv-lg"><span class="pv-lg-n">${l.name}</span><span class="pv-lg-r">#${l.myRank ?? '–'}</span></div>`;
+  html += `</div>`;
+  // 3) Өдрийн оноо график (up/down)
+  const byDay = {};
+  for (const m of data.matches) if (m.finished) byDay[m.date] = (byDay[m.date] || 0) + (m.points || 0);
+  const series = Object.keys(byDay).sort().map((d) => ({ date: d, pts: byDay[d] }));
+  if (series.length) html += `<div class="pv-sec">Өдрийн оноо</div>${dailyChart(series)}`;
+
+  // Өдрийн матчийн таамаг (сүүлийн 4 → бүгдийг харах)
   html += `<div class="pv-sec">Өдрийн таамаг</div>`;
   if (data.matches.length) {
-    html += `<div class="pv-cols"><span>Таамаг</span><span>Үр дүн</span><span>Авсан оноо</span></div>`;
     const fl = (s) => (s ? `<img class="pv-flag" src="${s}" alt="" loading="lazy" onerror="this.remove()">` : '');
-    html += '<div class="pv-list">';
-    for (const m of data.matches) {
+    const mRow = (m) => {
       const res = m.finished ? `${m.homeScore}:${m.awayScore}` : m.time;
       const pts = m.finished ? `<span class="mc-pts p${m.points}">+${m.points}</span>` : '';
-      html += `<div class="pv-row">
+      return `<div class="pv-row">
         <span class="pv-mt">${fl(m.homeFlag)}${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}${fl(m.awayFlag)}</span>
         <span class="pv-res${m.finished ? '' : ' soon'}">${res}</span>
         <span class="pv-pts">${pts}</span></div>`;
+    };
+    const ms = data.matches.slice().reverse(); // шинэ → хуучин
+    const shown = ms.slice(0, 4), rest = ms.slice(4);
+    html += `<div class="pv-cols"><span>Таамаг</span><span>Үр дүн</span><span>Авсан оноо</span></div>`;
+    html += `<div class="pv-list">${shown.map(mRow).join('')}</div>`;
+    if (rest.length) {
+      html += `<div class="pv-list pv-more" id="pvDailyMore" hidden>${rest.map(mRow).join('')}</div>`;
+      const lbl = `Бүгдийг харах (${ms.length})`;
+      html += `<button class="pv-more-btn" data-more="pvDailyMore" data-label="${lbl}">${lbl}</button>`;
     }
-    html += '</div>';
   } else html += '<div class="empty">Таамаг алга.</div>';
 
-  // Групп таамаг
+  // Групп таамаг (эхний 2 → бүгдийг харах)
   if (data.groups.length) {
     html += `<div class="pv-sec">Групп таамаг</div>`;
-    for (const g of data.groups) {
+    const grpCard = (g) => {
       const teams = state.cfg?.groups?.[g.group] || [];
       const byId = Object.fromEntries(teams.map((t) => [t.id, t]));
       const items = g.order.map((id, i) => {
@@ -615,10 +642,39 @@ function renderProfile(body, data) {
         return `<span class="pv-gt ${ok === true ? 'ok' : ok === false ? 'no' : ''}">${i + 1}.${flag}${t?.abbr || t?.name || id}${ok === true ? ' ✓' : ''}</span>`;
       }).join('');
       const pts = g.points == null ? '' : `<span class="gpts">+${g.points}</span>`;
-      html += `<div class="pv-grp"><div class="pv-grp-hd">Групп ${g.group} ${pts}</div><div>${items}</div></div>`;
+      return `<div class="pv-grp"><div class="pv-grp-hd">Групп ${g.group} ${pts}</div><div>${items}</div></div>`;
+    };
+    const shown = data.groups.slice(0, 2), rest = data.groups.slice(2);
+    html += shown.map(grpCard).join('');
+    if (rest.length) {
+      html += `<div class="pv-more" id="pvGroupMore" hidden>${rest.map(grpCard).join('')}</div>`;
+      const lbl = `Бүгдийг харах (${data.groups.length})`;
+      html += `<button class="pv-more-btn" data-more="pvGroupMore" data-label="${lbl}">${lbl}</button>`;
     }
   }
   body.innerHTML = html;
+}
+
+// Өдрийн оноо — area+line график (SVG)
+function dailyChart(series) {
+  const W = 320, H = 118, padB = 16, padT = 20, padX = 8;
+  const n = series.length;
+  const maxP = Math.max(2, ...series.map((s) => s.pts));
+  const x = (i) => (n <= 1 ? W / 2 : padX + (i / (n - 1)) * (W - 2 * padX));
+  const y = (p) => H - padB - (p / maxP) * (H - padB - padT);
+  const pts = series.map((s, i) => [x(i), y(s.pts)]);
+  const line = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)},${py.toFixed(1)}`).join('');
+  const area = `${line}L${pts[n - 1][0].toFixed(1)},${H - padB}L${pts[0][0].toFixed(1)},${H - padB}Z`;
+  const dots = pts.map(([px, py]) => `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="2.6" fill="#F97316"/>`).join('');
+  const vals = pts.map(([px, py], i) => `<text x="${px.toFixed(1)}" y="${(py - 7).toFixed(1)}" fill="#FB923C" font-size="10" font-weight="800" text-anchor="middle">${series[i].pts}</text>`).join('');
+  const lab = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
+  const idxs = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  const xlabels = idxs.map((i) => `<text x="${x(i).toFixed(1)}" y="${H - 3}" fill="var(--text-3)" font-size="9" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${lab(series[i].date)}</text>`).join('');
+  return `<div class="pv-chart"><svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
+    <defs><linearGradient id="dGrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F97316" stop-opacity="0.32"/><stop offset="1" stop-color="#F97316" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#dGrad)"/>
+    <path d="${line}" fill="none" stroke="#F97316" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${vals}${xlabels}</svg></div>`;
 }
 
 function copyCode(code) { navigator.clipboard?.writeText(code).then(() => toast(`Код хуулагдлаа: ${code}`, 'ok'), () => toast(`Код: ${code}`)); }
@@ -754,6 +810,12 @@ function wire() {
     $('#profileView').hidden = true;
     if (state.profileFromBoard) $('#leagueDetail').hidden = false; // самбараас орсон бол самбар руу
     else loadLeagues(); // chip-ээс орсон бол хуб руу
+  });
+  $('#pvBody').addEventListener('click', (e) => { // "Бүгдийг харах" товчлуур
+    const btn = e.target.closest('.pv-more-btn'); if (!btn) return;
+    const tgt = document.getElementById(btn.dataset.more); if (!tgt) return;
+    tgt.hidden = !tgt.hidden;
+    btn.textContent = tgt.hidden ? btn.dataset.label : 'Хураах';
   });
   $('#dayPrev').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, -1)));
   $('#dayNext').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, 1)));

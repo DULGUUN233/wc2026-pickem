@@ -201,8 +201,20 @@ router.get(
     }
     groups.sort((a, b) => a.group.localeCompare(b.group));
 
+    // Лигийн байр (тоглогчийн орсон бүх лиг) + global байр
+    const memberLeagues = await collections.leagues().find({ memberIds: pid }).toArray();
+    const leagues = memberLeagues.map((l) => {
+      const rows = rerank(l.memberIds.map((mid) => sb.byId[mid]).filter(Boolean));
+      const mine = rows.find((r) => r.playerId === pid);
+      return { name: l.name, code: l.code, myRank: mine ? mine.rank : null, memberCount: l.memberIds.length };
+    });
+    const globalRows = rerank(Object.values(sb.byId));
+    const globalRank = globalRows.find((r) => r.playerId === pid)?.rank || null;
+
     res.json({
       player: { id: pid, nickname: player.nickname, avatar: player.avatar || null, total: sb.byId[pid]?.total || 0 },
+      global: { rank: globalRank, total: globalRows.length },
+      leagues,
       matches,
       groups,
     });
