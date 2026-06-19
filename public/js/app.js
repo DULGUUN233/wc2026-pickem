@@ -78,12 +78,20 @@ function tryUsionLogin() {
       try {
         const uid = U.user?.getId?.() || U.config?.userId;
         const uname = U.user?.getName?.() || U.config?.userName || 'Тоглогч';
-        const avatar = U.user?.getAvatar?.() || U.config?.userAvatar || null;
+        let avatar = U.user?.getAvatar?.() || U.config?.userAvatar || null;
+        // config.userAvatar зарим хэрэглэгчид init-д ирдэггүй — host-аас бүтэн профайл татаж найдвартай авна
+        if (!avatar && typeof U.user?.getProfile === 'function') {
+          try { const prof = await U.user.getProfile(); if (prof?.avatar) avatar = prof.avatar; } catch { /* host дэмжихгүй бол алгасна */ }
+        }
         if (uid) {
           const { player, token } = await api.usionAuth(uid, uname, avatar);
           setToken(token);
           state.player = player;
-          if (avatar) state.player.avatar = avatar; // chip-д профайл зураг харуулахад
+          if (avatar) { // chip-д профайл зураг (хожуу ирвэл шинэчилнэ)
+            state.player.avatar = avatar;
+            const av = $('#playerAvatar');
+            if (av) av.innerHTML = `<img src="${avatar}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
+          }
         }
       } catch { /* алдвал nickname горимд унана */ }
       finish();
