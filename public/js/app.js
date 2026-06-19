@@ -100,6 +100,12 @@ async function afterLogin() {
 
 function showPlayerChip() {
   $('#playerChip').hidden = false;
+  const av = $('#playerAvatar');
+  if (state.player.avatar) {
+    av.innerHTML = `<img src="${state.player.avatar}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`;
+  } else {
+    av.textContent = (state.player.nickname || '?').charAt(0);
+  }
   $('#playerName').textContent = '…';
   refreshScore();
 }
@@ -531,7 +537,7 @@ function renderBoard(board, players) {
         <div class="pod-ava">${avatarHtml(r)}<span class="pod-rank">${r.rank}</span></div>
         <div class="pod-name">${r.nickname}</div>
         <div class="pod-pts">${r.total} оноо</div>`;
-      pod.addEventListener('click', () => openProfile(r.playerId));
+      pod.addEventListener('click', () => openProfile(r.playerId, true));
       podium.appendChild(pod);
     }
     board.appendChild(podium);
@@ -547,7 +553,7 @@ function renderBoard(board, players) {
       d.innerHTML = `<div class="pos">${r.rank}</div>
         <div class="who">${avatarHtml(r)}<div class="nm">${r.nickname}</div></div>
         <div class="pts">${r.total}<small>ОНОО</small></div>`;
-      d.addEventListener('click', () => openProfile(r.playerId));
+      d.addEventListener('click', () => openProfile(r.playerId, true));
       list.appendChild(d);
     }
     board.appendChild(list);
@@ -555,8 +561,12 @@ function renderBoard(board, players) {
 }
 
 // Тоглогчийн профайл (leaderboard-аас дарахад) — нэр/зураг/оноо + илгээсэн таамаг
-async function openProfile(playerId) {
+async function openProfile(playerId, fromBoard) {
   if (!playerId) return;
+  state.profileFromBoard = !!fromBoard;
+  // #profileView нь #screen-leagues дотор — тэр дэлгэцийг харагдуулна
+  document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== 'screen-leagues'));
+  document.querySelectorAll('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.screen === 'leagues'));
   $('#leagueHub').hidden = true;
   $('#leagueDetail').hidden = true;
   $('#profileView').hidden = false;
@@ -740,11 +750,15 @@ function wire() {
   $('#createLeagueBtn').addEventListener('click', createLeague);
   $('#joinLeagueBtn').addEventListener('click', joinLeague);
   $('#ldBack').addEventListener('click', () => { $('#leagueDetail').hidden = true; $('#leagueHub').hidden = false; });
-  $('#pvBack').addEventListener('click', () => { $('#profileView').hidden = true; $('#leagueDetail').hidden = false; });
+  $('#pvBack').addEventListener('click', () => {
+    $('#profileView').hidden = true;
+    if (state.profileFromBoard) $('#leagueDetail').hidden = false; // самбараас орсон бол самбар руу
+    else loadLeagues(); // chip-ээс орсон бол хуб руу
+  });
   $('#dayPrev').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, -1)));
   $('#dayNext').addEventListener('click', () => state.dailyDate && loadDaily(shiftDate(state.dailyDate, 1)));
   setupSwipe();
-  $('#playerChip').addEventListener('click', () => { if (confirm('Гарах уу?')) { setToken(''); location.reload(); } });
+  $('#playerChip').addEventListener('click', () => { if (state.player) openProfile(state.player.id, false); });
   document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
   document.querySelectorAll('.seg').forEach((b) => b.addEventListener('click', () => setSubTab(b.dataset.sub)));
   window.addEventListener('resize', () => movePill(false));
