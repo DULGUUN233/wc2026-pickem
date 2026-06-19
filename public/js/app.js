@@ -513,7 +513,7 @@ const LEAGUE_PRIZES = {
     { medal: '🥈', place: '2-р байр', val: '👕 Jersey' },
   ],
   '48YRNZ': [ // zavkhan — бооцоо, ялагч бүгдийг авна
-    { medal: '🏆', place: 'Ялагч бүгдийг', val: '100,000₮' },
+    { medal: '🏆', place: 'Ялагч бүгдийг', val: 'Бооцоо 100,000₮' },
   ],
 };
 function renderPrize(code) {
