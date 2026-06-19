@@ -679,6 +679,37 @@ function setSubTab(name) {
   document.querySelectorAll('.seg').forEach((s) => s.classList.toggle('active', s.dataset.sub === name));
   movePill(true);
   if (name === 'daily') loadDaily(state.dailyDate);
+  if (name === 'knockout') loadKnockout();
+}
+
+async function loadKnockout() {
+  const wrap = $('#knockout');
+  if (!wrap.querySelector('.ko-round')) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  try {
+    const data = await api.knockout();
+    renderKnockout(wrap, data.rounds || []);
+  } catch (e) { wrap.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+function renderKnockout(wrap, rounds) {
+  if (!rounds.length) { wrap.innerHTML = '<div class="empty">Хуваарь хараахан гараагүй байна.</div>'; return; }
+  const fl = (s) => (s ? `<img class="ko-flag" src="${s}" alt="" loading="lazy" onerror="this.remove()">` : '');
+  let html = '';
+  for (const r of rounds) {
+    html += `<div class="ko-round"><div class="ko-rname">${r.name}</div><div class="ko-matches">`;
+    for (const m of r.matches) {
+      const md = m.date ? `${+m.date.slice(5, 7)}/${+m.date.slice(8, 10)}` : '';
+      const top = m.finished ? 'Дууссан' : `${md} ${m.time}`;
+      const sc = (v) => (v == null ? '' : v);
+      html += `<div class="ko-m">
+        <div class="ko-when">${top}</div>
+        <div class="ko-row"><span class="ko-side">${fl(m.homeFlag)}<span class="ko-ab">${m.homeAbbr}</span></span><span class="ko-sc">${sc(m.homeScore)}</span></div>
+        <div class="ko-row"><span class="ko-side">${fl(m.awayFlag)}<span class="ko-ab">${m.awayAbbr}</span></span><span class="ko-sc">${sc(m.awayScore)}</span></div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  wrap.innerHTML = html;
 }
 
 // Гүйдэг pill-ийг идэвхтэй таб руу байрлуулна. animate=false бол шууд (анимацгүй) шилжинэ.

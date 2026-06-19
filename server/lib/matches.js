@@ -221,3 +221,57 @@ export async function allMatches() {
   const all = await ensureAll();
   return all ? Object.values(all.byDate).flat() : [];
 }
+
+/* ---- Хасагдах шат (ESPN, раунд бүрээр) ---- */
+const KO_ORDER = ['round-of-32', 'round-of-16', 'quarterfinals', 'semifinals', '3rd-place-match', 'final'];
+const KO_NAME = {
+  'round-of-32': 'Round of 32', 'round-of-16': '1/8 финал', 'quarterfinals': '1/4 финал',
+  'semifinals': 'Хагас финал', '3rd-place-match': '3-р байрын тоглолт', 'final': 'Финал',
+};
+function mapKO(e) {
+  const cs = e.competitions?.[0]?.competitors || [];
+  const home = cs.find((c) => c.homeAway === 'home') || cs[0] || {};
+  const away = cs.find((c) => c.homeAway === 'away') || cs[1] || {};
+  const ht = home.team || {}, at = away.team || {};
+  const state = e.status?.type?.state;
+  const finished = state === 'post';
+  return {
+    id: String(e.id),
+    home: ht.displayName || '?', away: at.displayName || '?',
+    homeAbbr: ht.abbreviation || '?', awayAbbr: at.abbreviation || '?',
+    homeFlag: ht.logo ? (flagFor(ht.displayName) || ht.logo) : null,
+    awayFlag: at.logo ? (flagFor(at.displayName) || at.logo) : null,
+    date: dateUB(e.date), time: hhmmUB(e.date),
+    status: finished ? 'FT' : state === 'in' ? 'LIVE' : 'NS', finished,
+    homeScore: finished ? num(home.score) : null, awayScore: finished ? num(away.score) : null,
+  };
+}
+let _ko = null;
+let _koRefreshing = false;
+async function refreshKO() {
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260628-20260720',
+      { signal: AbortSignal.timeout(9000) }
+    );
+    if (!res.ok) return;
+    const j = await res.json();
+    const byRound = {};
+    for (const e of j.events || []) {
+      const slug = e.season?.slug;
+      if (!KO_NAME[slug]) continue;
+      (byRound[slug] = byRound[slug] || []).push(mapKO(e));
+    }
+    const rounds = KO_ORDER.filter((s) => byRound[s]).map((s) => ({
+      slug: s, name: KO_NAME[s],
+      matches: byRound[s].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    }));
+    _ko = { at: Date.now(), rounds };
+  } catch {}
+}
+export async function fetchKnockout() {
+  const fresh = _ko && Date.now() - _ko.at < TTL;
+  if (_ko && !fresh && !_koRefreshing) { _koRefreshing = true; refreshKO().finally(() => { _koRefreshing = false; }); }
+  if (!_ko) await refreshKO();
+  return { rounds: _ko ? _ko.rounds : [] };
+}

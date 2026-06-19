@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, scoreMatch, scoreGroup, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, allMatches, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
+import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -235,6 +235,9 @@ router.get(
     res.json(await fetchMatches(date));
   })
 );
+
+// Хасагдах шат — раунд бүрээр (ESPN торны бүтэц)
+router.get('/knockout', asyncHandler(async (req, res) => res.json(await fetchKnockout())));
 
 /* ------------------------------- picks ------------------------------- */
 
