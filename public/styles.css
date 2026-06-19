@@ -186,6 +186,18 @@ img{display:block}
 .empty{color:var(--text-2);font-size:13.5px;text-align:center;padding:30px 18px;
   border:1.5px dashed var(--border);border-radius:var(--radius);background:var(--surface-2)}
 
+/* ===== 🌍 Бүх тоглогч — ерөнхий шагнал ===== */
+.ld-prize{margin:2px 0 18px}
+.ld-prize-label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin:0 2px 9px}
+.prize-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.prize-row{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.prize-row:last-child{border-bottom:none}
+.prize-medal{font-size:18px;text-align:center;line-height:1}
+.prize-place{font-size:13.5px;font-weight:700;color:var(--text-2)}
+.prize-val{font-size:14.5px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.prize-row.r1{background:linear-gradient(90deg,rgba(251,191,36,.13),transparent)}
+.prize-row.r1 .prize-val{color:#FBBF24}
+
 /* ============================ LEADERBOARD ============================ */
 .board{display:flex;flex-direction:column;gap:8px}
 .brow{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:12px;

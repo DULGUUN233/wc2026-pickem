@@ -501,11 +501,38 @@ function leagueCard(o) {
   return d;
 }
 
+// Лиг бүрийн шагнал (лигийн кодоор; '' нь 🌍 Бүх тоглогч). Жагсаалтад байхгүй лиг дээр гарахгүй.
+const LEAGUE_PRIZES = {
+  '': [ // 🌍 Бүх тоглогч
+    { medal: '🥇', place: '1-р байр', val: '⚽ Бөмбөг' },
+    { medal: '🥈', place: '2-р байр', val: '100,000₮' },
+    { medal: '🥉', place: '3-р байр', val: '50,000₮' },
+  ],
+  H69H77: [ // ZAVKHAN 2
+    { medal: '🥇', place: '1-р байр', val: '👕 Jersey' },
+    { medal: '🥈', place: '2-р байр', val: '👕 Jersey' },
+  ],
+  '48YRNZ': [ // zavkhan — бооцоо, ялагч бүгдийг авна
+    { medal: '🏆', place: 'Ялагч бүгдийг', val: '100,000₮' },
+  ],
+};
+function renderPrize(code) {
+  const wrap = $('#ldPrize');
+  const prizes = LEAGUE_PRIZES[code || ''];
+  if (!prizes) { wrap.hidden = true; wrap.innerHTML = ''; return; }
+  wrap.hidden = false;
+  wrap.innerHTML = `<div class="ld-prize-label">🏆 Шагнал</div>
+    <div class="prize-card">${prizes.map((p, i) => `
+      <div class="prize-row r${i + 1}"><span class="prize-medal">${p.medal}</span>
+        <span class="prize-place">${p.place}</span><span class="prize-val">${p.val}</span></div>`).join('')}</div>`;
+}
+
 async function showLeagueDetail(code, name) {
   $('#leagueHub').hidden = true;
   $('#leagueDetail').hidden = false;
   $('#profileView').hidden = true;
   $('#ldName').textContent = name;
+  renderPrize(code); // лигийн кодоор шагнал (LEAGUE_PRIZES)
   const board = $('#ldBoard'); board.innerHTML = '<div class="empty">Уншиж байна…</div>';
   try {
     const data = await api.leaderboard(code || '');
