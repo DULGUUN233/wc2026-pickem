@@ -127,7 +127,7 @@ async function refreshAll() {
   const results = {};
   for (const mm of fdMatches) {
     (byDate[mm.date] = byDate[mm.date] || []).push(mm);
-    results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore };
+    results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore, date: mm.date };
   }
   for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   const changed = !_all || JSON.stringify(results) !== JSON.stringify(_all.results);

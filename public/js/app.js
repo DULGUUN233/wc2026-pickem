@@ -282,9 +282,10 @@ function canPredict(m) {
   if (m.ts) return Date.now() < m.ts; // эхлэх цагт таамаг хаагдана
   return /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
 }
-function scoreMatchClient(p, h, a) {
+const EXACT_BONUS_FROM = '2026-06-19'; // backend-тэй ижил: энэ өдрөөс яг таамаг 3 оноо
+function scoreMatchClient(p, h, a, date) {
   if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
-  if (p.h === h && p.a === a) return 2;
+  if (p.h === h && p.a === a) return date && date >= EXACT_BONUS_FROM ? 3 : 2;
   const sg = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
   return sg(p.h, p.a) === sg(h, a) ? 1 : 0;
 }
@@ -350,8 +351,8 @@ function matchCard(m) {
     <div class="mc-body">${home}${mid}${away}</div>`;
 
   if (m.finished && saved) {
-    const pt = scoreMatchClient(saved, m.homeScore, m.awayScore);
-    card.classList.add(pt === 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
+    const pt = scoreMatchClient(saved, m.homeScore, m.awayScore, m.date || state.dailyDate);
+    card.classList.add(pt >= 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
     f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
     card.appendChild(f);
@@ -588,7 +589,7 @@ function renderProfile(body, data) {
   // ===== Бяцхан dashboard =====
   const fin = data.matches.filter((m) => m.finished);
   const scored = fin.filter((m) => m.points >= 1).length;
-  const exact = fin.filter((m) => m.points === 2).length;
+  const exact = fin.filter((m) => m.points >= 2).length;
   const acc = fin.length ? Math.round((scored / fin.length) * 100) : 0;
   // 1) Нарийвчлал + Яг таг
   html += `<div class="pv-dash">

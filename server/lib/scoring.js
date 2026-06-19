@@ -30,20 +30,25 @@ export function scoreGroup(pick, actual) {
 }
 
 /* ----------------------- Өдөр тутмын матчийн оноо ----------------------- */
-export const MATCH_EXACT = 2; // яг дүн зөв
+export const MATCH_EXACT = 2; // яг дүн зөв (EXACT_BONUS_FROM-аас өмнөх тоглолт)
+export const MATCH_EXACT_NEW = 3; // яг дүн зөв (EXACT_BONUS_FROM-аас хойших тоглолт)
+export const EXACT_BONUS_FROM = '2026-06-19'; // энэ өдрөөс (оруулаад) яг таамаг 3 оноо
 export const MATCH_OUTCOME = 1; // үр дүн (ялагч/тэнцэх) зөв, дүн буруу
 
 const sign = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
+// Тоглолтын огноогоор яг таамгийн оноог буцаана (огноо YYYY-MM-DD).
+const exactPoints = (date) => (date && date >= EXACT_BONUS_FROM ? MATCH_EXACT_NEW : MATCH_EXACT);
 
 /**
  * Нэг матчийн таамгийг бодит дүнтэй тулгаж оноо өгнө.
  * @param {{h:number,a:number}} pred  таамагласан дүн
  * @param {number} h бодит гэрийн оноо
  * @param {number} a бодит зочны оноо
+ * @param {string} [date] тоглолтын огноо (YYYY-MM-DD). EXACT_BONUS_FROM-аас хойш бол яг таамаг 3 оноо.
  */
-export function scoreMatch(pred, h, a) {
+export function scoreMatch(pred, h, a, date) {
   if (!pred || pred.h == null || pred.a == null || h == null || a == null) return 0;
-  if (pred.h === h && pred.a === a) return MATCH_EXACT;
+  if (pred.h === h && pred.a === a) return exactPoints(date);
   return sign(pred.h, pred.a) === sign(h, a) ? MATCH_OUTCOME : 0;
 }
 
