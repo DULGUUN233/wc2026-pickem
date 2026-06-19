@@ -146,7 +146,15 @@ function renderDeadline() {
   clearInterval(renderDeadline._iv);
   const tick = () => {
     const diff = t - Date.now();
-    if (diff <= 0) { elD.className = 'deadline closed'; elD.textContent = '🔒 Таамаг хаагдсан'; clearInterval(renderDeadline._iv); return; }
+    if (diff <= 0) {
+      elD.className = 'deadline closed'; elD.textContent = '🔒 Таамаг хаагдсан';
+      clearInterval(renderDeadline._iv);
+      if (!state.cfg.lock.globalLockPassed) { // дөнгөж хаагдлаа — UI-г шууд түгжих (reload хэрэггүй)
+        state.cfg.lock.globalLockPassed = true;
+        state.cfg.groupIds.forEach(rerenderCard);
+      }
+      return;
+    }
     const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
     const dt = new Date(t);
     const ds = `${dt.getMonth() + 1}-р сарын ${dt.getDate()}, ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
