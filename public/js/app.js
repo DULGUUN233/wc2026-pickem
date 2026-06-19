@@ -285,8 +285,13 @@ function fmtDate(dateStr) {
   const days = ['Ням', 'Дав', 'Мяг', 'Лха', 'Пүр', 'Баа', 'Бям'];
   return `${d.getUTCMonth() + 1}-р сар ${d.getUTCDate()}, ${days[d.getUTCDay()]}`;
 }
+const PREDICT_WINDOW_MS = 2 * 86400000; // одооноос 2 өдөр (48ц) дотор л таамаглана
+function futureLocked(m) { // хэт хол ирээдүй — таамаг хараахан нээгдээгүй
+  return !m.finished && !!m.ts && m.ts - Date.now() > PREDICT_WINDOW_MS;
+}
 function canPredict(m) {
   if (m.finished) return false;
+  if (futureLocked(m)) return false; // 2 өдрөөс хол бол хараахан түгжээтэй
   if (m.ts) return Date.now() < m.ts; // эхлэх цагт таамаг хаагдана
   return /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
 }
@@ -342,8 +347,9 @@ function stepperHtml(side, val) {
 function matchCard(m) {
   const card = el('div', 'mcard');
   const predictable = canPredict(m);
-  // оноон дээр төвд: дууссан → Дууссан, эхлээгүй → цаг, эхэлсэн (live) → LIVE
-  const when = m.finished ? 'Дууссан' : predictable ? (m.time || '') : 'LIVE';
+  const future = futureLocked(m); // 2 өдрөөс хол — хараахан түгжээтэй
+  // оноон дээр төвд: дууссан → Дууссан, эхлээгүй/түгжээтэй → цаг, эхэлсэн (live) → LIVE
+  const when = m.finished ? 'Дууссан' : (predictable || future) ? (m.time || '') : 'LIVE';
   const pick = state.matchPicks[m.id];          // ажлын таамаг (h/a нь тоо эсвэл undefined)
   const saved = state.matchPicksSaved[m.id];     // хадгалагдсан таамаг (бүтэн)
   const home = `<div class="mc-team">${flagImg(m.homeFlag)}<span class="nm" title="${m.home}">${m.homeAbbr || m.home}</span></div>`;
@@ -368,6 +374,12 @@ function matchCard(m) {
     // Таамаглаагүй дууссан: дүнг бусад картын адил доор нь (онооны badge-гүй)
     const f = el('div', 'mc-pred');
     f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b>`;
+    card.appendChild(f);
+  }
+  if (future) {
+    card.classList.add('future-locked');
+    const f = el('div', 'mc-pred locked');
+    f.innerHTML = '🔒 Таамаг удахгүй нээгдэнэ';
     card.appendChild(f);
   }
   if (predictable) {

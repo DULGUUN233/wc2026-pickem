@@ -321,11 +321,17 @@ router.put(
     const player = await requirePlayer(req);
     const incoming = req.body?.picks;
     if (!incoming || typeof incoming !== 'object') throw new HttpError(400, 'picks буруу байна');
+    const all = await allMatches();
+    const byId = {}; for (const mm of all) byId[mm.id] = mm;
+    const now = Date.now();
+    // Тоглолт одоо таамаглаж болох эсэх: эхлээгүй БА одооноос 2 өдрөөс хол биш
+    const open = (mm) => !mm || !mm.ts || (now < mm.ts && mm.ts - now <= 2 * 86400000);
     const cur = (await collections.matchPicks().findOne({ playerId: String(player._id) }))?.picks || {};
     const next = { ...cur };
     for (const [mid, p] of Object.entries(incoming)) {
       if (!mid) continue;
       if (p == null) { delete next[mid]; continue; }
+      if (!open(byId[mid])) continue; // эхэлсэн / 2 өдрөөс хол тоглолтыг хүлээж авахгүй
       const h = Number(p.h), a = Number(p.a);
       if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) continue;
       next[mid] = { h, a };

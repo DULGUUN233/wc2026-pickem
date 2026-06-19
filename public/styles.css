@@ -331,6 +331,8 @@ img{display:block}
 .mcard.res-exact{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.42)}
 .mcard.res-out{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.42)}
 .mcard.res-miss{background:rgba(248,113,113,.09);border-color:rgba(248,113,113,.38)}
+.mcard.future-locked{opacity:.6}
+.mc-pred.locked{color:var(--text-3)}
 
 /* ============================ KNOCKOUT (хасагдах шат) ============================ */
 .ko-round{margin-bottom:18px}
