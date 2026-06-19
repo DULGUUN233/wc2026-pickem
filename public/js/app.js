@@ -282,7 +282,7 @@ function canPredict(m) {
   if (m.ts) return Date.now() < m.ts; // эхлэх цагт таамаг хаагдана
   return /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
 }
-const EXACT_BONUS_FROM = '2026-06-19'; // backend-тэй ижил: энэ өдрөөс яг таамаг 3 оноо
+const EXACT_BONUS_FROM = '2026-06-20'; // backend-тэй ижил: энэ өдрөөс яг таамаг 3 оноо (06-19 ба өмнөх нь 2)
 function scoreMatchClient(p, h, a, date) {
   if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
   if (p.h === h && p.a === a) return date && date >= EXACT_BONUS_FROM ? 3 : 2;

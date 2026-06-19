@@ -32,7 +32,7 @@ export function scoreGroup(pick, actual) {
 /* ----------------------- Өдөр тутмын матчийн оноо ----------------------- */
 export const MATCH_EXACT = 2; // яг дүн зөв (EXACT_BONUS_FROM-аас өмнөх тоглолт)
 export const MATCH_EXACT_NEW = 3; // яг дүн зөв (EXACT_BONUS_FROM-аас хойших тоглолт)
-export const EXACT_BONUS_FROM = '2026-06-19'; // энэ өдрөөс (оруулаад) яг таамаг 3 оноо
+export const EXACT_BONUS_FROM = '2026-06-20'; // энэ өдрөөс (оруулаад) яг таамаг 3 оноо. 06-19 ба өмнөх нь 2 хэвээр.
 export const MATCH_OUTCOME = 1; // үр дүн (ялагч/тэнцэх) зөв, дүн буруу
 
 const sign = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
