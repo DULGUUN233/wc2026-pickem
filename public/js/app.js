@@ -525,8 +525,8 @@ function leagueCard(o) {
 const LEAGUE_PRIZES = {
   '': [ // 🌍 Бүх тоглогч
     { medal: '🥇', place: '1-р байр', val: '⚽ Бөмбөг' },
-    { medal: '🥈', place: '2-р байр', val: '100,000₮' },
-    { medal: '🥉', place: '3-р байр', val: '50,000₮' },
+    { medal: '🥈', place: '2-р байр', val: '50,000₮' },
+    { medal: '🥉', place: '3-р байр', val: '20,000₮' },
   ],
   H69H77: [ // ZAVKHAN 2
     { medal: '🥇', place: '1-р байр', val: '👕 Jersey' },
