@@ -370,3 +370,14 @@ export async function fetchBracket() {
   if (!_br) await refreshBracket();
   return _br ? { ready: _br.ready, startTs: _br.startTs, r32: _br.r32, winners: _br.winners, tree: BRACKET_TREE } : null;
 }
+
+// ТЕСТ: TBD R32 слотуудыг тогтмол mock багаар дүүргэж ready болгоно (зөвхөн тест тоглогчдод;
+// бодит багууд групп дуусахад орлоно). Cached bracket-ийг өөрчлөхгүй — хуулбар буцаана.
+export function bracketTestFill(b) {
+  if (!b || b.ready) return b;
+  const pool = GROUP_IDS.flatMap((g) => GROUPS[g].map((t) => t.id));
+  const used = new Set(b.r32.flatMap((s) => [s.a, s.b]).filter(Boolean));
+  let pi = 0; const next = () => { while (used.has(pool[pi])) pi++; used.add(pool[pi]); return pool[pi++]; };
+  const r32 = b.r32.map((s) => ({ a: s.a || next(), b: s.b || next() }));
+  return { ...b, r32, ready: true };
+}

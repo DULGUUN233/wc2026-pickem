@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, scoreMatch, scoreGroup, scoreBracket, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings, fetchBracket, BRACKET_TREE } from '../lib/matches.js';
+import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings, fetchBracket, bracketTestFill, BRACKET_TREE } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -374,6 +374,13 @@ router.put(
 );
 
 /* ----------------------- Хасагдах шатны bracket ----------------------- */
+// ТЕСТ: эдгээр нэрэн дээр групп шат дуусахаас өмнө bracket-ийг (mock багаар) нээнэ.
+const BRACKET_TEST = new Set((process.env.BRACKET_TEST_NICKS || 'ggg').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+const bracketForPlayer = async (player) => {
+  const b = await fetchBracket();
+  return b && BRACKET_TEST.has(player.nicknameLower) ? bracketTestFill(b) : b;
+};
+
 // Bracket таамгийг бүхэл модоор шалгана: пик бүр өмнөх раундын сонгосон ялагчдаас байх ёстой.
 function validBracketPicks(incoming, bracket) {
   const out = {};
@@ -395,7 +402,7 @@ router.get(
   '/bracket',
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
-    const bracket = await fetchBracket();
+    const bracket = await bracketForPlayer(player);
     const mine = (await collections.bracketPicks().findOne({ playerId: String(player._id) }))?.picks || {};
     const locked = !!bracket && bracket.startTs > 0 && Date.now() >= bracket.startTs;
     res.json({
@@ -410,7 +417,7 @@ router.put(
   '/bracketpicks',
   asyncHandler(async (req, res) => {
     const player = await requirePlayer(req);
-    const bracket = await fetchBracket();
+    const bracket = await bracketForPlayer(player);
     if (!bracket?.ready) throw new HttpError(400, 'Хасагдах шат хараахан нээгдээгүй (групп шат дуусаагүй)');
     if (bracket.startTs > 0 && Date.now() >= bracket.startTs) throw new HttpError(400, 'Хасагдах шат эхэлсэн — таамаг хаагдсан');
     const next = validBracketPicks(req.body?.picks, bracket);
