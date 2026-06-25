@@ -51,6 +51,7 @@ function mapFD(m) {
     ts,
     status: finished ? 'FT' : live ? 'LIVE' : 'NS',
     finished,
+    knockout: !!knockout, // GROUP_STAGE биш бол хасагдах шат
     homeScore: finished ? num(ft.home) : null,
     awayScore: finished ? num(ft.away) : null,
   };

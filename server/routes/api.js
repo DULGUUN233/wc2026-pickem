@@ -187,6 +187,7 @@ router.get(
       matches.push({
         id: mid, home: m.home, away: m.away, homeAbbr: m.homeAbbr, awayAbbr: m.awayAbbr,
         homeFlag: m.homeFlag, awayFlag: m.awayFlag, date: m.date, time: m.time, finished: fin,
+        knockout: !!m.knockout, // хэсгийн шат / хасагдах шат ялгах
         pick, homeScore: fin ? r.h : null, awayScore: fin ? r.a : null,
         points: fin ? scoreMatch(pick, r.h, r.a, m.date) : null,
       });
