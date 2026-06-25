@@ -164,10 +164,13 @@ function nextPollDelay() {
   if (nextWindow !== Infinity) return Math.max(30 * 1000, Math.min(nextWindow - now, 30 * 60 * 1000));
   return 30 * 60 * 1000; // ойрын тоглолтгүй
 }
-export function startPolling() {
+export function startPolling(onChange) {
   if (!process.env.FOOTBALL_DATA_KEY?.trim()) return; // түлхүүргүй бол утгагүй
   const tick = async () => {
+    const before = _resultsVersion;
     try { await refreshAll(); } catch {}
+    // тоглолтын дүн өөрчлөгдсөн (матч дууссан / оноо шинэчлэгдсэн) бол дуудна
+    if (onChange && _resultsVersion !== before) { try { await onChange(); } catch {} }
     setTimeout(tick, nextPollDelay());
   };
   tick();

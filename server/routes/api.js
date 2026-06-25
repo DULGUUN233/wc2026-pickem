@@ -55,13 +55,12 @@ function invalidateScoreboard() { _sbDirty = true; }
 // ESPN-ээс ДУУССАН группүүдийн эцсийн эрэмбийг results-д бичнэ.
 // Зөвхөн results-д БАЙХГҮЙ группүүдийг бичнэ — admin-ийн гар оруулгыг дарж бичихгүй.
 export async function syncGroupResults() {
-  let standings = {};
-  try { standings = await fetchGroupStandings(); } catch { return { added: [] }; }
-  const letters = Object.keys(standings);
-  if (!letters.length) return { added: [] };
   const existing = new Set((await collections.results().find({}, { projection: { _id: 1 } }).toArray()).map((d) => d._id));
+  if (GROUP_IDS.every((g) => existing.has(g))) return { added: [], done: true }; // бүх групп орсон → ESPN татахгүй
+  let standings = {};
+  try { standings = await fetchGroupStandings(); } catch { return { added: [], done: false }; }
   const added = [];
-  for (const g of letters) {
+  for (const g of Object.keys(standings)) {
     if (existing.has(g)) continue; // аль хэдийн орсон (admin/өмнө синк) → хүндэтгэнэ
     await collections.results().updateOne(
       { _id: g },
@@ -71,7 +70,7 @@ export async function syncGroupResults() {
     added.push(g);
   }
   if (added.length) invalidateScoreboard();
-  return { added };
+  return { added, done: GROUP_IDS.every((g) => existing.has(g) || added.includes(g)) };
 }
 
 async function getScoreboard() {

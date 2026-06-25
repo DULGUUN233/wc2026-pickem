@@ -39,14 +39,19 @@ connectDb()
     const server = app.listen(PORT, () => {
       console.log(`🏆 WC2026 Pick'em ажиллаж байна: http://localhost:${PORT}`);
     });
-    startPolling(); // background: тоглолтын дүнг байнга шинэчилнэ
     startNotifier(); // background: Usion notify (тохируулсан үед)
-    // background: ESPN-ээс дууссан группүүдийн эрэмбийг автоматаар татаж онооно
-    const syncLoop = async () => {
-      try { const r = await syncGroupResults(); if (r.added.length) console.log('✅ Групп үр дүн ESPN-ээс синк хийгдлээ:', r.added.join(', ')); } catch {}
-      setTimeout(syncLoop, 5 * 60 * 1000); // 5 минут тутам
+    // ESPN-ээс групп шатны эрэмбийг онооно. Бүх групп орвол ESPN татахгүй (хямд).
+    let syncing = false;
+    const doSync = async (why) => {
+      if (syncing) return; syncing = true;
+      try { const r = await syncGroupResults(); if (r.added.length) console.log(`✅ Групп үр дүн ESPN-ээс синк (${why}):`, r.added.join(', ')); }
+      catch {} finally { syncing = false; }
     };
-    syncLoop();
+    // (1) Матч дуусах бүрт (тоглолтын дүн өөрчлөгдөхөд) → шууд шалгана
+    startPolling(() => doSync('матч дуусав'));
+    // (2) 10 мин тутам fallback — ESPN-ийн саатлыг даах (бүх групп орвол үнэгүй)
+    const syncFallback = () => { doSync('fallback'); setTimeout(syncFallback, 10 * 60 * 1000); };
+    syncFallback();
     const shutdown = async () => {
       console.log('\nХаагдаж байна...');
       server.close();
