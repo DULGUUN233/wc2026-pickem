@@ -2,8 +2,8 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
-import { scorePicks, scoreMatch, scoreGroup, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings } from '../lib/matches.js';
+import { scorePicks, scoreMatch, scoreGroup, scoreBracket, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
+import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings, fetchBracket, BRACKET_TREE } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -75,15 +75,19 @@ export async function syncGroupResults() {
 
 async function getScoreboard() {
   if (_sb && !_sbDirty && _sb.rv === getResultsVersion() && Date.now() - _sb.at < SB_TTL) return _sb;
-  const [results, matchResults, players, pickDocs, mpDocs] = await Promise.all([
+  const [results, matchResults, players, pickDocs, mpDocs, bpDocs, bracket] = await Promise.all([
     resultsMap(),
     fetchAllResults(),
     collections.players().find({}).toArray(),
     collections.picks().find({}).toArray(),
     collections.matchPicks().find({}).toArray(),
+    collections.bracketPicks().find({}).toArray(),
+    fetchBracket().catch(() => null),
   ]);
   const picksBy = {}; for (const d of pickDocs) picksBy[d.playerId] = d.picks;
   const mpBy = {}; for (const d of mpDocs) mpBy[d.playerId] = d.picks;
+  const bpBy = {}; for (const d of bpDocs) bpBy[d.playerId] = d.picks;
+  const brWinners = bracket?.winners || {};
   const byId = {};
   for (const p of players) {
     const id = String(p._id);
@@ -95,8 +99,9 @@ async function getScoreboard() {
       const r = matchResults[mid];
       if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a, r.date);
     }
+    const brPts = scoreBracket(bpBy[id] || {}, brWinners).points;
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
-    byId[id] = { playerId: id, nickname: p.nickname, avatar: p.avatar || null, total: s.total + dailyPts, perfectGroups: s.perfectGroups, completed };
+    byId[id] = { playerId: id, nickname: p.nickname, avatar: p.avatar || null, total: s.total + dailyPts + brPts, perfectGroups: s.perfectGroups, completed };
   }
   _sb = { at: Date.now(), rv: getResultsVersion(), byId, scoredGroups: Object.values(results).filter((o) => o && o.length === 4).length };
   _sbDirty = false;
@@ -365,6 +370,57 @@ router.put(
     );
     invalidateScoreboard();
     res.json({ picks: next });
+  })
+);
+
+/* ----------------------- Хасагдах шатны bracket ----------------------- */
+// Bracket таамгийг бүхэл модоор шалгана: пик бүр өмнөх раундын сонгосон ялагчдаас байх ёстой.
+function validBracketPicks(incoming, bracket) {
+  const out = {};
+  if (!incoming || typeof incoming !== 'object' || !bracket?.r32) return out;
+  const win = { R32: {}, R16: {}, QF: {}, SF: {} };
+  bracket.r32.forEach((slot, i) => {
+    const m = i + 1, pick = incoming[`R32-${m}`];
+    if (slot.a && slot.b && (pick === slot.a || pick === slot.b)) { out[`R32-${m}`] = pick; win.R32[m] = pick; }
+  });
+  const round = (name, prev) => BRACKET_TREE[name].forEach((pair, i) => {
+    const m = i + 1, cands = [win[prev][pair[0]], win[prev][pair[1]]].filter(Boolean), pick = incoming[`${name}-${m}`];
+    if (cands.includes(pick)) { out[`${name}-${m}`] = pick; if (win[name]) win[name][m] = pick; }
+  });
+  round('R16', 'R32'); round('QF', 'R16'); round('SF', 'QF'); round('F', 'SF');
+  return out;
+}
+
+router.get(
+  '/bracket',
+  asyncHandler(async (req, res) => {
+    const player = await requirePlayer(req);
+    const bracket = await fetchBracket();
+    const mine = (await collections.bracketPicks().findOne({ playerId: String(player._id) }))?.picks || {};
+    const locked = !!bracket && bracket.startTs > 0 && Date.now() >= bracket.startTs;
+    res.json({
+      ready: !!bracket?.ready, locked, startTs: bracket?.startTs || 0,
+      r32: bracket?.r32 || [], winners: bracket?.winners || {}, tree: BRACKET_TREE,
+      picks: mine, points: scoreBracket(mine, bracket?.winners || {}).points,
+    });
+  })
+);
+
+router.put(
+  '/bracketpicks',
+  asyncHandler(async (req, res) => {
+    const player = await requirePlayer(req);
+    const bracket = await fetchBracket();
+    if (!bracket?.ready) throw new HttpError(400, 'Хасагдах шат хараахан нээгдээгүй (групп шат дуусаагүй)');
+    if (bracket.startTs > 0 && Date.now() >= bracket.startTs) throw new HttpError(400, 'Хасагдах шат эхэлсэн — таамаг хаагдсан');
+    const next = validBracketPicks(req.body?.picks, bracket);
+    await collections.bracketPicks().updateOne(
+      { playerId: String(player._id) },
+      { $set: { playerId: String(player._id), picks: next, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    invalidateScoreboard();
+    res.json({ picks: next, points: scoreBracket(next, bracket.winners).points });
   })
 );
 

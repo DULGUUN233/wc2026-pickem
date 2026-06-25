@@ -828,11 +828,91 @@ function setSubTab(name) {
 
 async function loadKnockout() {
   const wrap = $('#knockout');
-  if (!wrap.querySelector('.ko-round')) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  if (!wrap.querySelector('.br-round') && !wrap.querySelector('.ko-round')) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
   try {
-    const data = await api.knockout();
-    renderKnockout(wrap, data.rounds || []);
+    const b = await api.bracket();
+    state.bracket = b;
+    state.bracketPicks = { ...(b.picks || {}) };
+    if (!b.ready) {
+      // Групп шат дуусаагүй — bracket нээгдээгүй. Мессеж + унших хуваарь харуулна.
+      wrap.innerHTML = `<div class="br-closed">🔒 Хасагдах шатны таамаг <b>групп шат дуусахад</b> нээгдэнэ.<br><span class="muted">32 баг тодрох үед энд bracket-ээ дээрээс доош бөглөнө.</span></div><div id="koView"></div>`;
+      try { const ko = await api.knockout(); renderKnockout($('#koView'), ko.rounds || []); } catch {}
+      return;
+    }
+    renderBracket(wrap);
   } catch (e) { wrap.innerHTML = `<div class="empty">${e.message}</div>`; }
+}
+
+// ===== Хасагдах шатны bracket pickem (self-propagating) =====
+const KO_ROUNDS = [
+  { key: 'R32', name: 'Round of 32', n: 16 },
+  { key: 'R16', name: '1/8 финал', n: 8 },
+  { key: 'QF', name: '1/4 финал', n: 4 },
+  { key: 'SF', name: 'Хагас финал', n: 2 },
+  { key: 'F', name: 'Финал', n: 1 },
+];
+const KO_PREV = { R16: 'R32', QF: 'R16', SF: 'QF', F: 'SF' };
+function bteam(id) {
+  if (!id) return null;
+  for (const g of state.cfg.groupIds) { const t = (state.cfg.groups[g] || []).find((x) => x.id === id); if (t) return t; }
+  return { id, abbr: String(id).toUpperCase(), code: id, name: id };
+}
+// тухайн раунд-слотын 2 нэр дэвшигч (R32: бодит баг; цааш нь өмнөх раундын СОНГОСОН ялагчид)
+function brCands(round, slot) {
+  if (round === 'R32') { const s = state.bracket.r32[slot - 1] || {}; return [s.a || null, s.b || null]; }
+  const pair = state.bracket.tree[round][slot - 1]; const prev = KO_PREV[round];
+  return [state.bracketPicks[`${prev}-${pair[0]}`] || null, state.bracketPicks[`${prev}-${pair[1]}`] || null];
+}
+// сонголт өөрчлөгдөхөд буруу болсон доош сонголтуудыг цэвэрлэх (server-тэй ижил)
+function brPrune() {
+  const p = state.bracketPicks;
+  for (const round of ['R16', 'QF', 'SF', 'F']) {
+    const prev = KO_PREV[round];
+    state.bracket.tree[round].forEach((pair, i) => {
+      const m = i + 1, cands = [p[`${prev}-${pair[0]}`], p[`${prev}-${pair[1]}`]].filter(Boolean);
+      if (p[`${round}-${m}`] && !cands.includes(p[`${round}-${m}`])) delete p[`${round}-${m}`];
+    });
+  }
+}
+let _brSaveT = null;
+function brPick(key, teamId) {
+  if (!teamId || state.bracket.locked) return;
+  if (state.bracketPicks[key] === teamId) return;
+  state.bracketPicks[key] = teamId;
+  brPrune();
+  renderBracket($('#knockout'));
+  clearTimeout(_brSaveT);
+  _brSaveT = setTimeout(async () => {
+    try { const r = await api.saveBracket(state.bracketPicks); state.bracketPicks = { ...(r.picks || {}) }; toast('Bracket хадгалагдлаа ✓', 'ok'); }
+    catch (e) { toast(e.message, 'err'); }
+  }, 700);
+}
+function renderBracket(wrap) {
+  const b = state.bracket, p = state.bracketPicks;
+  const chip = (round, slot, teamId, isWin) => {
+    const t = bteam(teamId);
+    const actual = b.winners[`${round}-${slot}`];
+    const decided = b.locked && actual && isWin;
+    let mk = '';
+    if (decided) mk = teamId === actual ? ' ✓' : ' ✗';
+    const cls = 'br-team' + (isWin ? ' sel' : '') + (decided ? (teamId === actual ? ' ok' : ' no') : '') + (teamId ? '' : ' tbd');
+    const flag = t && t.code ? `<img class="br-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    const dis = teamId && !b.locked ? '' : 'disabled';
+    return `<button class="${cls}" data-pick="${round}-${slot}" data-team="${teamId || ''}" ${dis}>${flag}<span>${t ? (t.abbr || t.name) : '—'}</span>${mk}</button>`;
+  };
+  let html = `<div class="br-head"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : '<span class="muted">ялагчаа сонго</span>'}<span class="br-pts">${b.points || 0} оноо</span></div>`;
+  for (const r of KO_ROUNDS) {
+    html += `<div class="br-round"><div class="br-rname">${r.name}</div>`;
+    for (let slot = 1; slot <= r.n; slot++) {
+      const [a, c] = brCands(r.key, slot), win = p[`${r.key}-${slot}`];
+      html += `<div class="br-m">${chip(r.key, slot, a, !!a && win === a)}<span class="br-v">v</span>${chip(r.key, slot, c, !!c && win === c)}</div>`;
+    }
+    html += `</div>`;
+  }
+  const champ = bteam(p['F-1']);
+  html += `<div class="br-champ">🏆 <span>Аварга</span> <b>${champ ? (champ.name || champ.abbr) : '—'}</b></div>`;
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.br-team:not([disabled])').forEach((btn) => btn.addEventListener('click', () => brPick(btn.dataset.pick, btn.dataset.team)));
 }
 
 function renderKnockout(wrap, rounds) {

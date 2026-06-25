@@ -38,6 +38,8 @@ export const api = {
   groups: () => request('GET', '/groups'),
   matches: (date) => request('GET', '/matches' + (date ? `?date=${date}` : '')),
   knockout: () => request('GET', '/knockout'),
+  bracket: () => request('GET', '/bracket'),
+  saveBracket: (picks) => request('PUT', '/bracketpicks', { picks }),
   getMatchPicks: () => request('GET', '/matchpicks'),
   saveMatchPicks: (picks) => request('PUT', '/matchpicks', { picks }),
   getPicks: () => request('GET', '/picks'),

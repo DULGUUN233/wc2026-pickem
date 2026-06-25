@@ -74,3 +74,23 @@ export function scorePicks(picks = {}, results = {}) {
   }
   return { total, perfectGroups, scoredGroups, perGroup };
 }
+
+/* ----------------------- Хасагдах шатны bracket оноо ----------------------- */
+// Раунд бүрийн зөв дэвшсэн баг тутамд: R32=1, R16=2, 1/4=4, хагас=8, финал(аварга)=16.
+export const BRACKET_PTS = { R32: 1, R16: 2, QF: 4, SF: 8, F: 16 };
+
+/**
+ * Bracket таамгийн оноог бодит ялагчидтай тулгаж тооцно.
+ * @param {Object<string,string>} picks   { 'R32-1':teamId, 'R16-1':teamId, ..., 'F-1':teamId }
+ * @param {Object<string,string|null>} winners бодит ялагчид (тоглогдоогүй бол null)
+ * @returns {{points:number, correct:number}}
+ */
+export function scoreBracket(picks = {}, winners = {}) {
+  let points = 0, correct = 0;
+  for (const [key, pick] of Object.entries(picks || {})) {
+    const pts = BRACKET_PTS[key.split('-')[0]];
+    if (!pts || !pick) continue;
+    if (winners[key] && pick === winners[key]) { points += pts; correct++; }
+  }
+  return { points, correct };
+}

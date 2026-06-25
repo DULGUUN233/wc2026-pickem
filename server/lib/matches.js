@@ -314,3 +314,59 @@ export async function fetchGroupStandings() {
     return out;
   } catch { return {}; }
 }
+
+/* ---- Хасагдах шатны bracket (ESPN) — self-propagating pickem-д ---- */
+// Тогтмол мод (ESPN-ийн placeholder-оос баталгаажсан): утга = өмнөх раундын матчийн дугаар (1-based).
+export const BRACKET_TREE = {
+  R16: [[1, 3], [2, 5], [4, 6], [7, 8], [11, 12], [9, 10], [13, 15], [14, 16]],
+  QF: [[1, 2], [5, 6], [3, 4], [7, 8]],
+  SF: [[1, 2], [3, 4]],
+  F: [[1, 2]],
+};
+
+function koWinner(e) {
+  if (e?.status?.type?.state !== 'post') return null; // дуусаагүй
+  const cs = e.competitions?.[0]?.competitors || [];
+  const w = cs.find((x) => x.winner) || cs.slice().sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0))[0];
+  return w ? codeOf(w.team?.displayName) : null;
+}
+
+let _br = null;
+let _brRefreshing = false;
+async function refreshBracket() {
+  let evs = [];
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260628-20260720',
+      { signal: AbortSignal.timeout(9000) }
+    );
+    if (!res.ok) return;
+    const j = await res.json();
+    evs = j.events || [];
+  } catch { return; }
+  const round = (slug) => evs.filter((e) => e.season?.slug === slug).sort((a, b) => (+a.id) - (+b.id));
+  const r32 = round('round-of-32');
+  if (r32.length !== 16) return; // бүтэц бэлэн биш
+  const r16 = round('round-of-16'), qf = round('quarterfinals'), sf = round('semifinals'), fin = round('final');
+
+  const teamId = (e, idx) => codeOf(e.competitions?.[0]?.competitors?.[idx]?.team?.displayName); // map хийгдвэл id, эс бол null
+  const r32slots = r32.map((e) => ({ a: teamId(e, 0), b: teamId(e, 1) }));
+  const ready = r32slots.every((s) => s.a && s.b); // бүх 32 баг тодорхой болсон уу
+
+  const winners = {}; // бодит ялагчид (оноо тооцоход)
+  r32.forEach((e, i) => { winners[`R32-${i + 1}`] = koWinner(e); });
+  r16.forEach((e, i) => { winners[`R16-${i + 1}`] = koWinner(e); });
+  qf.forEach((e, i) => { winners[`QF-${i + 1}`] = koWinner(e); });
+  sf.forEach((e, i) => { winners[`SF-${i + 1}`] = koWinner(e); });
+  fin.forEach((e, i) => { winners[`F-${i + 1}`] = koWinner(e); });
+
+  const startTs = Math.min(...r32.map((e) => Date.parse(e?.date) || Infinity)); // R32 эхлэх (lock)
+  _br = { at: Date.now(), ready, startTs: Number.isFinite(startTs) ? startTs : 0, r32: r32slots, winners };
+}
+
+export async function fetchBracket() {
+  const fresh = _br && Date.now() - _br.at < TTL;
+  if (_br && !fresh && !_brRefreshing) { _brRefreshing = true; refreshBracket().finally(() => { _brRefreshing = false; }); }
+  if (!_br) await refreshBracket();
+  return _br ? { ready: _br.ready, startTs: _br.startTs, r32: _br.r32, winners: _br.winners, tree: BRACKET_TREE } : null;
+}
