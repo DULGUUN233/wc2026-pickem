@@ -844,14 +844,18 @@ async function loadKnockout() {
 }
 
 // ===== Хасагдах шатны bracket pickem (self-propagating) =====
-const KO_ROUNDS = [
-  { key: 'R32', name: 'Round of 32', n: 16 },
-  { key: 'R16', name: '1/8 финал', n: 8 },
-  { key: 'QF', name: '1/4 финал', n: 4 },
-  { key: 'SF', name: 'Хагас финал', n: 2 },
-  { key: 'F', name: 'Финал', n: 1 },
-];
+const KO_ORDER = ['R32', 'R16', 'QF', 'SF', 'F'];
+const KO_NAME = { R32: 'Round of 32', R16: '1/8 финал', QF: '1/4 финал', SF: 'Хагас финал', F: 'Финал' };
 const KO_PREV = { R16: 'R32', QF: 'R16', SF: 'QF', F: 'SF' };
+// Модны навчны дараалал — холбоос шугам цэвэрхэн (хос бүр зэрэгцэн орохоор) эрэмбэлнэ.
+function bracketVisualOrder(tree) {
+  const o = { F: [1] };
+  o.SF = tree.F.flatMap((pair) => pair);
+  o.QF = o.SF.flatMap((sf) => tree.SF[sf - 1]);
+  o.R16 = o.QF.flatMap((qf) => tree.QF[qf - 1]);
+  o.R32 = o.R16.flatMap((r16) => tree.R16[r16 - 1]);
+  return o;
+}
 function bteam(id) {
   if (!id) return null;
   for (const g of state.cfg.groupIds) { const t = (state.cfg.groups[g] || []).find((x) => x.id === id); if (t) return t; }
@@ -887,30 +891,37 @@ function brPick(key, teamId) {
     catch (e) { toast(e.message, 'err'); }
   }, 700);
 }
+// нэг багийн мөр (картан доторх) — дарж ялагчаа сонгоно
+function brTeamRow(round, slot, teamId, isWin) {
+  const b = state.bracket, t = bteam(teamId);
+  const actual = b.winners[`${round}-${slot}`];
+  const decided = b.locked && actual && isWin;
+  const mk = decided ? (teamId === actual ? ' ✓' : ' ✗') : '';
+  const cls = 'br-team' + (isWin ? ' sel' : '') + (decided ? (teamId === actual ? ' ok' : ' no') : '') + (teamId ? '' : ' tbd');
+  const flag = t && t.code ? `<img class="br-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '<span class="br-shield"></span>';
+  const dis = teamId && !b.locked ? '' : 'disabled';
+  return `<button class="${cls}" data-pick="${round}-${slot}" data-team="${teamId || ''}" ${dis}><span class="br-tn">${t ? (t.abbr || t.name) : 'TBD'}</span>${flag}${mk}</button>`;
+}
 function renderBracket(wrap) {
   const b = state.bracket, p = state.bracketPicks;
-  const chip = (round, slot, teamId, isWin) => {
-    const t = bteam(teamId);
-    const actual = b.winners[`${round}-${slot}`];
-    const decided = b.locked && actual && isWin;
-    let mk = '';
-    if (decided) mk = teamId === actual ? ' ✓' : ' ✗';
-    const cls = 'br-team' + (isWin ? ' sel' : '') + (decided ? (teamId === actual ? ' ok' : ' no') : '') + (teamId ? '' : ' tbd');
-    const flag = t && t.code ? `<img class="br-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '';
-    const dis = teamId && !b.locked ? '' : 'disabled';
-    return `<button class="${cls}" data-pick="${round}-${slot}" data-team="${teamId || ''}" ${dis}>${flag}<span>${t ? (t.abbr || t.name) : '—'}</span>${mk}</button>`;
-  };
-  let html = `<div class="br-head"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : '<span class="muted">ялагчаа сонго</span>'}<span class="br-pts">${b.points || 0} оноо</span></div>`;
-  for (const r of KO_ROUNDS) {
-    html += `<div class="br-round"><div class="br-rname">${r.name}</div>`;
-    for (let slot = 1; slot <= r.n; slot++) {
-      const [a, c] = brCands(r.key, slot), win = p[`${r.key}-${slot}`];
-      html += `<div class="br-m">${chip(r.key, slot, a, !!a && win === a)}<span class="br-v">v</span>${chip(r.key, slot, c, !!c && win === c)}</div>`;
+  const vo = bracketVisualOrder(b.tree);
+  let html = `<div class="br-bar"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : '<span class="muted">ялагчаа дар</span>'}<span class="br-pts">${b.points || 0} оноо</span></div>`;
+  html += '<div class="br-tree">';
+  KO_ORDER.forEach((rk, ci) => {
+    html += `<div class="br-col col-${rk}${ci === 0 ? ' first' : ''}"><div class="br-col-h">${KO_NAME[rk]}</div><div class="br-col-body">`;
+    for (const slot of vo[rk]) {
+      const [a, c] = brCands(rk, slot), win = p[`${rk}-${slot}`];
+      const m = b.meta && b.meta[`${rk}-${slot}`];
+      const when = m && m.date ? `${+m.date.slice(5, 7)}/${+m.date.slice(8, 10)} ${m.time}` : '';
+      html += `<div class="br-wrap"><div class="br-card">${when ? `<div class="br-when">${when}</div>` : ''}`
+        + brTeamRow(rk, slot, a, !!a && win === a) + brTeamRow(rk, slot, c, !!c && win === c) + `</div></div>`;
     }
-    html += `</div>`;
-  }
+    html += `</div></div>`;
+  });
+  // Аварга багана
   const champ = bteam(p['F-1']);
-  html += `<div class="br-champ">🏆 <span>Аварга</span> <b>${champ ? (champ.name || champ.abbr) : '—'}</b></div>`;
+  html += `<div class="br-col champ"><div class="br-col-h">🏆 Аварга</div><div class="br-col-body"><div class="br-champ-card">${champ ? `${champ.code ? `<img class="br-flag" src="${flagSrc(champ.code)}" onerror="this.remove()">` : ''}<b>${champ.abbr || champ.name}</b>` : '—'}</div></div></div>`;
+  html += '</div>';
   wrap.innerHTML = html;
   wrap.querySelectorAll('.br-team:not([disabled])').forEach((btn) => btn.addEventListener('click', () => brPick(btn.dataset.pick, btn.dataset.team)));
 }

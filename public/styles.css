@@ -347,29 +347,39 @@ img{display:block}
 .ko-ab{font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ko-sc{font-weight:900;font-size:16px;font-variant-numeric:tabular-nums;color:var(--text);flex-shrink:0}
 
-/* ===== Хасагдах шатны bracket pickem ===== */
+/* ===== Хасагдах шатны bracket pickem (хэвтээ мод, хажуу swipe) ===== */
 .br-closed{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 14px;text-align:center;font-weight:700;line-height:1.5;margin-bottom:14px}
-.br-head{display:flex;align-items:center;gap:8px;font-weight:800;margin:2px 2px 12px}
-.br-head .muted{font-weight:600;font-size:12px}
-.br-head .br-pts{margin-left:auto;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.br-bar{display:flex;align-items:center;gap:8px;font-weight:800;margin:2px 2px 10px}
+.br-bar .muted{font-weight:600;font-size:12px;color:var(--text-3)}
+.br-bar .br-pts{margin-left:auto;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
 .br-lock{font-size:12px;font-weight:800;color:var(--text-3)}
-.br-round{margin-bottom:16px}
-.br-rname{font-size:13px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin:0 2px 8px}
-.br-m{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.br-v{font-size:11px;font-weight:800;color:var(--text-3);flex:none}
-.br-team{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1.5px solid var(--border-2);
-  color:var(--text);border-radius:12px;padding:10px 12px;font-weight:800;font-size:14px;cursor:pointer;text-align:left;transition:border-color .12s,background .12s}
-.br-team span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.br-team .br-flag{width:24px;height:17px;border-radius:3px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.1)}
+.br-tree{display:flex;overflow-x:auto;gap:14px;padding-bottom:10px;-webkit-overflow-scrolling:touch}
+.br-col{flex:0 0 auto;width:154px;display:flex;flex-direction:column;position:relative}
+.br-col-h{position:sticky;top:0;z-index:3;background:var(--bg);font-size:11.5px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;padding:6px 2px 8px;text-align:center}
+.br-col-body{flex:1;display:flex;flex-direction:column}
+.br-wrap{flex:1 0 auto;display:flex;align-items:center;position:relative;padding:5px 0}
+.br-card{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;position:relative}
+.br-when{font-size:9.5px;font-weight:700;color:var(--text-3);text-align:center}
+.br-team{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1.5px solid transparent;border-radius:6px;padding:6px 8px;color:var(--text);font-weight:800;font-size:13px;cursor:pointer;text-align:left;width:100%}
 .br-team:active{transform:scale(.98)}
-.br-team.sel{background:linear-gradient(90deg,rgba(99,102,241,.22),var(--surface-2) 70%);border-color:var(--accent)}
+.br-team.sel{background:linear-gradient(90deg,rgba(99,102,241,.22),var(--surface-2));border-color:var(--accent)}
 .br-team.tbd{opacity:.5;cursor:default}
-.br-team.ok{border-color:var(--green);background:linear-gradient(90deg,rgba(34,197,94,.2),var(--surface-2) 70%)}
-.br-team.no{border-color:var(--red,#EF4444);background:linear-gradient(90deg,rgba(239,68,68,.18),var(--surface-2) 70%)}
+.br-team.ok{border-color:var(--green)}
+.br-team.no{border-color:#EF4444}
 .br-team[disabled]{cursor:default}
-.br-champ{display:flex;align-items:center;gap:8px;justify-content:center;background:linear-gradient(90deg,rgba(224,168,46,.16),rgba(224,168,46,.04));
-  border:1px solid rgba(224,168,46,.45);border-radius:12px;padding:12px;font-weight:900;font-size:16px;margin-top:6px}
-.br-champ span{font-size:13px;font-weight:700;color:var(--gold)}
+.br-tn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-flag{width:20px;height:14px;border-radius:2px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.1)}
+.br-shield{width:16px;height:16px;border-radius:4px;background:var(--surface);border:1px solid var(--border-2);flex:none}
+/* холбоос: elbow шугам (карт→баруун→босоо→дараагийн карт) */
+.br-tree{--ln:rgba(255,255,255,.2)}
+.br-col:not(.champ) .br-card::after{content:'';position:absolute;right:-7px;top:50%;width:7px;height:2px;background:var(--ln)}
+.br-col:not(.first) .br-card::before{content:'';position:absolute;left:-7px;top:50%;width:7px;height:2px;background:var(--ln)}
+.br-col:not(.champ):not(.col-F) .br-wrap::after{content:'';position:absolute;right:-7px;width:2px;background:var(--ln)}
+.br-col:not(.champ):not(.col-F) .br-wrap:nth-child(odd)::after{top:50%;bottom:0}
+.br-col:not(.champ):not(.col-F) .br-wrap:nth-child(even)::after{top:0;bottom:50%}
+.br-col.champ{justify-content:center}
+.br-champ-card{display:flex;flex-direction:column;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(224,168,46,.18),rgba(224,168,46,.04));border:1px solid rgba(224,168,46,.5);border-radius:10px;padding:14px 8px;font-weight:900;color:var(--gold);font-size:14px;text-align:center}
+.br-champ-card .br-flag{width:30px;height:21px}
 
 /* ============================ BOTTOM NAV ============================ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;

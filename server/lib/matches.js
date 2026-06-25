@@ -353,22 +353,22 @@ async function refreshBracket() {
   const r32slots = r32.map((e) => ({ a: teamId(e, 0), b: teamId(e, 1) }));
   const ready = r32slots.every((s) => s.a && s.b); // бүх 32 баг тодорхой болсон уу
 
-  const winners = {}; // бодит ялагчид (оноо тооцоход)
-  r32.forEach((e, i) => { winners[`R32-${i + 1}`] = koWinner(e); });
-  r16.forEach((e, i) => { winners[`R16-${i + 1}`] = koWinner(e); });
-  qf.forEach((e, i) => { winners[`QF-${i + 1}`] = koWinner(e); });
-  sf.forEach((e, i) => { winners[`SF-${i + 1}`] = koWinner(e); });
-  fin.forEach((e, i) => { winners[`F-${i + 1}`] = koWinner(e); });
+  const winners = {}, meta = {}; // бодит ялагчид (оноо) + матч бүрийн огноо/цаг
+  const fill = (list, key) => list.forEach((e, i) => {
+    winners[`${key}-${i + 1}`] = koWinner(e);
+    meta[`${key}-${i + 1}`] = { date: dateUB(e.date), time: hhmmUB(e.date) };
+  });
+  fill(r32, 'R32'); fill(r16, 'R16'); fill(qf, 'QF'); fill(sf, 'SF'); fill(fin, 'F');
 
   const startTs = Math.min(...r32.map((e) => Date.parse(e?.date) || Infinity)); // R32 эхлэх (lock)
-  _br = { at: Date.now(), ready, startTs: Number.isFinite(startTs) ? startTs : 0, r32: r32slots, winners };
+  _br = { at: Date.now(), ready, startTs: Number.isFinite(startTs) ? startTs : 0, r32: r32slots, winners, meta };
 }
 
 export async function fetchBracket() {
   const fresh = _br && Date.now() - _br.at < TTL;
   if (_br && !fresh && !_brRefreshing) { _brRefreshing = true; refreshBracket().finally(() => { _brRefreshing = false; }); }
   if (!_br) await refreshBracket();
-  return _br ? { ready: _br.ready, startTs: _br.startTs, r32: _br.r32, winners: _br.winners, tree: BRACKET_TREE } : null;
+  return _br ? { ready: _br.ready, startTs: _br.startTs, r32: _br.r32, winners: _br.winners, meta: _br.meta, tree: BRACKET_TREE } : null;
 }
 
 // ТЕСТ: TBD R32 слотуудыг тогтмол mock багаар дүүргэж ready болгоно (зөвхөн тест тоглогчдод;

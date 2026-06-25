@@ -407,7 +407,7 @@ router.get(
     const locked = !!bracket && bracket.startTs > 0 && Date.now() >= bracket.startTs;
     res.json({
       ready: !!bracket?.ready, locked, startTs: bracket?.startTs || 0,
-      r32: bracket?.r32 || [], winners: bracket?.winners || {}, tree: BRACKET_TREE,
+      r32: bracket?.r32 || [], winners: bracket?.winners || {}, meta: bracket?.meta || {}, tree: BRACKET_TREE,
       picks: mine, points: scoreBracket(mine, bracket?.winners || {}).points,
     });
   })
