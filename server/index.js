@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDb, closeDb } from './db.js';
-import apiRouter from './routes/api.js';
+import apiRouter, { syncGroupResults } from './routes/api.js';
 import { startPolling } from './lib/matches.js';
 import { startNotifier } from './lib/notify.js';
 import { HttpError } from './lib/util.js';
@@ -41,6 +41,12 @@ connectDb()
     });
     startPolling(); // background: тоглолтын дүнг байнга шинэчилнэ
     startNotifier(); // background: Usion notify (тохируулсан үед)
+    // background: ESPN-ээс дууссан группүүдийн эрэмбийг автоматаар татаж онооно
+    const syncLoop = async () => {
+      try { const r = await syncGroupResults(); if (r.added.length) console.log('✅ Групп үр дүн ESPN-ээс синк хийгдлээ:', r.added.join(', ')); } catch {}
+      setTimeout(syncLoop, 5 * 60 * 1000); // 5 минут тутам
+    };
+    syncLoop();
     const shutdown = async () => {
       console.log('\nХаагдаж байна...');
       server.close();

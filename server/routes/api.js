@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, scoreMatch, scoreGroup, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar } from '../lib/matches.js';
+import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -51,6 +51,28 @@ let _sb = null; // { at, byId, scoredGroups }
 let _sbDirty = true;
 const SB_TTL = 60 * 1000;
 function invalidateScoreboard() { _sbDirty = true; }
+
+// ESPN-ээс ДУУССАН группүүдийн эцсийн эрэмбийг results-д бичнэ.
+// Зөвхөн results-д БАЙХГҮЙ группүүдийг бичнэ — admin-ийн гар оруулгыг дарж бичихгүй.
+export async function syncGroupResults() {
+  let standings = {};
+  try { standings = await fetchGroupStandings(); } catch { return { added: [] }; }
+  const letters = Object.keys(standings);
+  if (!letters.length) return { added: [] };
+  const existing = new Set((await collections.results().find({}, { projection: { _id: 1 } }).toArray()).map((d) => d._id));
+  const added = [];
+  for (const g of letters) {
+    if (existing.has(g)) continue; // аль хэдийн орсон (admin/өмнө синк) → хүндэтгэнэ
+    await collections.results().updateOne(
+      { _id: g },
+      { $set: { order: standings[g], source: 'espn', updatedAt: new Date() } },
+      { upsert: true }
+    );
+    added.push(g);
+  }
+  if (added.length) invalidateScoreboard();
+  return { added };
+}
 
 async function getScoreboard() {
   if (_sb && !_sbDirty && _sb.rv === getResultsVersion() && Date.now() - _sb.at < SB_TTL) return _sb;

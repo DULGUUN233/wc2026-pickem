@@ -646,21 +646,29 @@ function renderProfile(body, data) {
   const scored = fin.filter((m) => m.points >= 1).length;
   const exact = fin.filter((m) => m.points >= 2).length;
   const acc = fin.length ? Math.round((scored / fin.length) * 100) : 0;
-  // Шатаар хуваасан нарийвчлал (хувь + хэдээс хэд)
+  // Хасагдах шат — knockout матчийн оноо таамгийн нарийвчлал
   const phaseStat = (arr) => {
     const sc = arr.filter((m) => m.points >= 1).length;
     return { sc, n: arr.length, pct: arr.length ? Math.round((sc / arr.length) * 100) : 0 };
   };
-  const grp = phaseStat(fin.filter((m) => !m.knockout));
   const kno = phaseStat(fin.filter((m) => m.knockout));
+  // Хэсгийн шат — групп байрны таамаг (12 групп × 4 = 48 байр); тодорхой болсон группүүдээр
+  const grpTotal = (state.cfg?.groupIds?.length || 12) * 4;
+  let grpCorrect = 0, grpDecided = 0;
+  for (const gg of data.groups) {
+    if (!gg.actual) continue;
+    grpDecided += gg.order.length;
+    for (let i = 0; i < gg.order.length; i++) if (gg.order[i] === gg.actual[i]) grpCorrect++;
+  }
+  const grpPct = grpDecided ? Math.round((grpCorrect / grpDecided) * 100) : 0;
   // 1) Нарийвчлал + Яг таг
   html += `<div class="pv-dash">
     <div class="pv-stat"><div class="pv-stat-v">${fin.length ? acc + '%' : '–'}</div><div class="pv-stat-l">Нарийвчлал</div><div class="pv-stat-s">${scored}/${fin.length} зөв</div></div>
     <div class="pv-stat"><div class="pv-stat-v">${exact}</div><div class="pv-stat-l">Яг таг таасан</div></div>
   </div>`;
-  // 1b) Хэсгийн шат / Хасагдах шат — нарийвчлал хувь + хэдээс хэд
+  // 1b) Хэсгийн шат (байрны таамаг /48) / Хасагдах шат (knockout матч)
   html += `<div class="pv-dash">
-    <div class="pv-stat"><div class="pv-stat-v">${grp.n ? grp.pct + '%' : '–'}</div><div class="pv-stat-l">Хэсгийн шат</div><div class="pv-stat-s">${grp.sc}/${grp.n} зөв</div></div>
+    <div class="pv-stat"><div class="pv-stat-v">${grpDecided ? grpPct + '%' : '–'}</div><div class="pv-stat-l">Хэсгийн шат</div><div class="pv-stat-s">${grpCorrect}/${grpTotal} зөв</div></div>
     <div class="pv-stat"><div class="pv-stat-v">${kno.n ? kno.pct + '%' : '–'}</div><div class="pv-stat-l">Хасагдах шат</div><div class="pv-stat-s">${kno.sc}/${kno.n} зөв</div></div>
   </div>`;
   // 2) Лигийн байр (бүх лиг + global)

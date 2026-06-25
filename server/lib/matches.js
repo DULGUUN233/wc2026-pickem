@@ -276,3 +276,38 @@ export async function fetchKnockout() {
   if (!_ko) await refreshKO();
   return { rounds: _ko ? _ko.rounds : [] };
 }
+
+/* ---- ESPN-ээс групп шатны ДУУССАН эрэмбэ (бүх баг 3 тоглосон) ---- */
+// → { A: ['mx','za','kr','cz'], ... } зөвхөн бүрэн дууссан БА цэвэр map хийгдсэн группүүд.
+export async function fetchGroupStandings() {
+  try {
+    const res = await fetch(
+      'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings',
+      { signal: AbortSignal.timeout(9000) }
+    );
+    if (!res.ok) return {};
+    const j = await res.json();
+    const out = {};
+    for (const ch of j.children || []) {
+      const letter = (ch.name || '').replace(/^group\s+/i, '').trim().toUpperCase(); // "Group A" → "A"
+      if (!GROUP_IDS.includes(letter)) continue;
+      const entries = ch.standings?.entries || [];
+      if (entries.length !== 4) continue;
+      const stat = (e, n) => { const x = (e.stats || []).find((s) => s.name === n || s.type === n); return x ? x.value : undefined; };
+      const rows = entries.map((e) => ({
+        name: e.team?.displayName || e.team?.name,
+        rank: Number(stat(e, 'rank')),
+        gp: Number(stat(e, 'gamesPlayed')),
+      }));
+      if (!rows.every((r) => r.gp >= 3)) continue; // бүх баг 3 тоглоогүй → групп дуусаагүй
+      if (!rows.every((r) => r.rank >= 1 && r.rank <= 4)) continue;
+      rows.sort((a, b) => a.rank - b.rank);
+      const ids = rows.map((r) => codeOf(r.name));
+      const groupIds = new Set(GROUPS[letter].map((t) => t.id));
+      if (ids.some((id) => !id || !groupIds.has(id))) continue; // нэр map хийгдсэнгүй → бүхэлд нь алгасна
+      if (new Set(ids).size !== 4) continue; // давхцал → алгасна
+      out[letter] = ids;
+    }
+    return out;
+  } catch { return {}; }
+}
