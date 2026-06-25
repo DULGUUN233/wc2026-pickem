@@ -363,7 +363,7 @@ img{display:block}
 .br-team{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1.5px solid transparent;border-radius:6px;padding:6px 8px;color:var(--text);font-weight:800;font-size:13px;cursor:pointer;text-align:left;width:100%}
 .br-team:active{transform:scale(.98)}
 .br-team.sel{background:linear-gradient(90deg,rgba(99,102,241,.22),var(--surface-2));border-color:var(--accent)}
-.br-team.tbd{opacity:.5;cursor:default}
+.br-team.tbd{opacity:.62;cursor:default}
 .br-team.ok{border-color:var(--green)}
 .br-team.no{border-color:#EF4444}
 .br-team[disabled]{cursor:default}

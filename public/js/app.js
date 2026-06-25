@@ -828,18 +828,12 @@ function setSubTab(name) {
 
 async function loadKnockout() {
   const wrap = $('#knockout');
-  if (!wrap.querySelector('.br-round') && !wrap.querySelector('.ko-round')) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
+  if (!wrap.querySelector('.br-tree')) wrap.innerHTML = '<div class="empty">Уншиж байна…</div>';
   try {
     const b = await api.bracket();
     state.bracket = b;
     state.bracketPicks = { ...(b.picks || {}) };
-    if (!b.ready) {
-      // Групп шат дуусаагүй — bracket нээгдээгүй. Мессеж + унших хуваарь харуулна.
-      wrap.innerHTML = `<div class="br-closed">🔒 Хасагдах шатны таамаг <b>групп шат дуусахад</b> нээгдэнэ.<br><span class="muted">32 баг тодрох үед энд bracket-ээ дээрээс доош бөглөнө.</span></div><div id="koView"></div>`;
-      try { const ko = await api.knockout(); renderKnockout($('#koView'), ko.rounds || []); } catch {}
-      return;
-    }
-    renderBracket(wrap);
+    renderBracket(wrap); // нээгдсэн → pickem; нээгдээгүй → ижил мод (read-only, TBD)
   } catch (e) { wrap.innerHTML = `<div class="empty">${e.message}</div>`; }
 }
 
@@ -880,7 +874,7 @@ function brPrune() {
 }
 let _brSaveT = null;
 function brPick(key, teamId) {
-  if (!teamId || state.bracket.locked) return;
+  if (!teamId || state.bracket.locked || !state.bracket.ready) return;
   if (state.bracketPicks[key] === teamId) return;
   state.bracketPicks[key] = teamId;
   brPrune();
@@ -891,30 +885,33 @@ function brPick(key, teamId) {
     catch (e) { toast(e.message, 'err'); }
   }, 700);
 }
-// нэг багийн мөр (картан доторх) — дарж ялагчаа сонгоно
-function brTeamRow(round, slot, teamId, isWin) {
+// нэг багийн мөр (картан доторх) — дарж ялагчаа сонгоно. label = TBD үеийн группын байрны шошго (2F г.м.)
+function brTeamRow(round, slot, teamId, isWin, label) {
   const b = state.bracket, t = bteam(teamId);
   const actual = b.winners[`${round}-${slot}`];
   const decided = b.locked && actual && isWin;
   const mk = decided ? (teamId === actual ? ' ✓' : ' ✗') : '';
   const cls = 'br-team' + (isWin ? ' sel' : '') + (decided ? (teamId === actual ? ' ok' : ' no') : '') + (teamId ? '' : ' tbd');
   const flag = t && t.code ? `<img class="br-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '<span class="br-shield"></span>';
-  const dis = teamId && !b.locked ? '' : 'disabled';
-  return `<button class="${cls}" data-pick="${round}-${slot}" data-team="${teamId || ''}" ${dis}><span class="br-tn">${t ? (t.abbr || t.name) : 'TBD'}</span>${flag}${mk}</button>`;
+  const dis = teamId && b.ready && !b.locked ? '' : 'disabled';
+  return `<button class="${cls}" data-pick="${round}-${slot}" data-team="${teamId || ''}" ${dis}><span class="br-tn">${t ? (t.abbr || t.name) : (label || 'TBD')}</span>${flag}${mk}</button>`;
 }
 function renderBracket(wrap) {
   const b = state.bracket, p = state.bracketPicks;
   const vo = bracketVisualOrder(b.tree);
-  let html = `<div class="br-bar"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : '<span class="muted">ялагчаа дар</span>'}<span class="br-pts">${b.points || 0} оноо</span></div>`;
+  let html = '';
+  if (!b.ready) html += `<div class="br-closed">🔒 Хасагдах шатны таамаг <b>групп шат дуусахад</b> нээгдэнэ.<br><span class="muted">32 баг тодрох үед энд bracket-ээ дээрээс доош бөглөнө.</span></div>`;
+  html += `<div class="br-bar"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : (b.ready ? '<span class="muted">ялагчаа дар</span>' : '<span class="muted">урьдчилан харах</span>')}<span class="br-pts">${b.points || 0} оноо</span></div>`;
   html += '<div class="br-tree">';
   KO_ORDER.forEach((rk, ci) => {
     html += `<div class="br-col col-${rk}${ci === 0 ? ' first' : ''}"><div class="br-col-h">${KO_NAME[rk]}</div><div class="br-col-body">`;
     for (const slot of vo[rk]) {
       const [a, c] = brCands(rk, slot), win = p[`${rk}-${slot}`];
+      const rs = rk === 'R32' ? (b.r32[slot - 1] || {}) : {};
       const m = b.meta && b.meta[`${rk}-${slot}`];
       const when = m && m.date ? `${+m.date.slice(5, 7)}/${+m.date.slice(8, 10)} ${m.time}` : '';
       html += `<div class="br-wrap"><div class="br-card">${when ? `<div class="br-when">${when}</div>` : ''}`
-        + brTeamRow(rk, slot, a, !!a && win === a) + brTeamRow(rk, slot, c, !!c && win === c) + `</div></div>`;
+        + brTeamRow(rk, slot, a, !!a && win === a, rs.aLabel) + brTeamRow(rk, slot, c, !!c && win === c, rs.bLabel) + `</div></div>`;
     }
     html += `</div></div>`;
   });

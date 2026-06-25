@@ -349,8 +349,10 @@ async function refreshBracket() {
   if (r32.length !== 16) return; // бүтэц бэлэн биш
   const r16 = round('round-of-16'), qf = round('quarterfinals'), sf = round('semifinals'), fin = round('final');
 
-  const teamId = (e, idx) => codeOf(e.competitions?.[0]?.competitors?.[idx]?.team?.displayName); // map хийгдвэл id, эс бол null
-  const r32slots = r32.map((e) => ({ a: teamId(e, 0), b: teamId(e, 1) }));
+  const cmp = (e, idx) => e.competitions?.[0]?.competitors?.[idx]?.team || {};
+  const teamId = (e, idx) => codeOf(cmp(e, idx).displayName); // map хийгдвэл id, эс бол null
+  const slot = (e, idx) => { const id = teamId(e, idx); return id ? { id } : { id: null, label: cmp(e, idx).abbreviation || 'TBD' }; };
+  const r32slots = r32.map((e) => ({ a: slot(e, 0).id, b: slot(e, 1).id, aLabel: slot(e, 0).label, bLabel: slot(e, 1).label }));
   const ready = r32slots.every((s) => s.a && s.b); // бүх 32 баг тодорхой болсон уу
 
   const winners = {}, meta = {}; // бодит ялагчид (оноо) + матч бүрийн огноо/цаг
