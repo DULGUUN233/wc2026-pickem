@@ -201,14 +201,16 @@ function groupCard(g) {
       <img src="${flagSrc(t.code)}" alt="" onerror="this.style.display='none'">${t.abbr || t.name.slice(0, 3).toUpperCase()}</button>`;
   }).join('');
 
+  const myPick = realPick || placed; // тоглогчийн өөрийн таамаг (хадгалсан)
   let rows = '';
   for (let i = 0; i < 4; i++) {
-    const id = actual ? actual[i] : placed[i];
+    // дүн гарсан бол ӨӨРИЙН таамгийн эрэмбээр харуулна (актуал биш), ард нь зөв/буруу тэмдэг
+    const id = actual ? myPick[i] : placed[i];
     if (id) {
       const t = teamById(g, id);
       let mark = '', right = '';
       if (locked) {
-        if (actual && realPick) { const ok = realPick[i] === id; mark = ok ? ' correct' : ' wrong'; right = `<span class="mark">${ok ? ICON.check : ICON.x}</span>`; }
+        if (actual) { const ok = actual[i] === id; mark = ok ? ' correct' : ' wrong'; right = `<span class="mark">${ok ? ICON.check : ICON.x}</span>`; }
       } else if (complete) {
         right = `<span class="grip" aria-label="чирэх">${ICON.grip}</span>`;
       }
