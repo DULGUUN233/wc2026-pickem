@@ -384,9 +384,15 @@ img{display:block}
 .br-col:not(.champ):not(.col-F) .br-wrap::after{content:'';position:absolute;right:-7px;width:2px;background:var(--ln)}
 .br-col:not(.champ):not(.col-F) .br-wrap:nth-child(odd)::after{top:50%;bottom:0}
 .br-col:not(.champ):not(.col-F) .br-wrap:nth-child(even)::after{top:0;bottom:50%}
+/* харагдаж буй цонхны сүүлийн баганад баруун тийш дүүжилсэн холбоос гаргахгүй */
+.br-col.last .br-card::after{display:none}
+.br-col.last:not(.champ) .br-wrap::after{display:none}
 .br-col.champ{justify-content:center}
 .br-champ-card{display:flex;flex-direction:column;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(224,168,46,.18),rgba(224,168,46,.04));border:1px solid rgba(224,168,46,.5);border-radius:10px;padding:14px 8px;font-weight:900;color:var(--gold);font-size:14px;text-align:center}
 .br-champ-card .br-flag{width:30px;height:21px}
+/* раунд солих үед хуудас зөөлөн орж ирэх animation */
+.br-tree.br-slide{animation:br-slide-in .26s ease}
+@keyframes br-slide-in{from{opacity:.35;transform:translateX(16px)}to{opacity:1;transform:none}}
 
 /* ============================ BOTTOM NAV ============================ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;
