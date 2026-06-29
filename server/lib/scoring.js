@@ -45,11 +45,17 @@ const exactPoints = (date) => (date && date >= EXACT_BONUS_FROM ? MATCH_EXACT_NE
  * @param {number} h бодит гэрийн оноо
  * @param {number} a бодит зочны оноо
  * @param {string} [date] тоглолтын огноо (YYYY-MM-DD). EXACT_BONUS_FROM-аас хойш бол яг таамаг 3 оноо.
+ * @param {'h'|'a'} [adv] хасагдах шат пенальти/нэмэлт цагаар шийдэгдсэн бол ДЭВШСЭН тал
+ *   (90/120 мин тэнцээ үед). Тухайн багийг ялна гэж таасан бол outcome оноо өгнө.
  */
-export function scoreMatch(pred, h, a, date) {
+export function scoreMatch(pred, h, a, date, adv) {
   if (!pred || pred.h == null || pred.a == null || h == null || a == null) return 0;
-  if (pred.h === h && pred.a === a) return exactPoints(date);
-  return sign(pred.h, pred.a) === sign(h, a) ? MATCH_OUTCOME : 0;
+  if (pred.h === h && pred.a === a) return exactPoints(date); // яг дүн
+  const ps = sign(pred.h, pred.a);
+  if (ps === sign(h, a)) return MATCH_OUTCOME; // ердийн үр дүн (тэнцээ ч мөн)
+  // Хасагдах шат: пенальти/нэмэлт цагаар дэвшсэн багийг ялна гэж таасан бол outcome
+  if (adv && ((adv === 'h' && ps > 0) || (adv === 'a' && ps < 0))) return MATCH_OUTCOME;
+  return 0;
 }
 
 /**

@@ -38,6 +38,14 @@ function mapFD(m) {
   const overMs = (knockout ? 3 : 2.5) * 3600 * 1000;
   const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + overMs);
   const live = !finished && (m.status === 'IN_PLAY' || m.status === 'PAUSED');
+  // Хасагдах шат пенальти/нэмэлт цагаар шийдэгдсэн бол ДЭВШСЭН тал (90/120 мин тэнцээ үед)
+  let adv = null;
+  if (knockout && finished && hasScore && ft.home === ft.away) {
+    const pen = m.score?.penalties || {};
+    if (pen.home != null && pen.away != null) adv = pen.home > pen.away ? 'h' : 'a';
+    else if (m.score?.winner === 'HOME_TEAM') adv = 'h';
+    else if (m.score?.winner === 'AWAY_TEAM') adv = 'a';
+  }
   return {
     id: String(m.id),
     home: m.homeTeam?.name || 'TBD',
@@ -54,6 +62,7 @@ function mapFD(m) {
     knockout: !!knockout, // GROUP_STAGE биш бол хасагдах шат
     homeScore: finished ? num(ft.home) : null,
     awayScore: finished ? num(ft.away) : null,
+    adv,
   };
 }
 
@@ -85,6 +94,7 @@ async function fetchEspnFinished() {
       map.set(matchKey(home.team?.displayName, away.team?.displayName, dateUB(e.date)), {
         h: num(home.score),
         a: num(away.score),
+        adv: home.winner ? 'h' : away.winner ? 'a' : null, // дэвшсэн тал (пен/нэмэлт цаг)
       });
     }
     return map;
@@ -120,6 +130,7 @@ async function refreshAll() {
         mm.status = 'FT';
         mm.homeScore = e.h;
         mm.awayScore = e.a;
+        if (mm.knockout && e.h === e.a) mm.adv = e.adv ?? null; // пен/нэмэлт цагаар дэвшсэн тал
       }
     }
   }
@@ -128,7 +139,7 @@ async function refreshAll() {
   const results = {};
   for (const mm of fdMatches) {
     (byDate[mm.date] = byDate[mm.date] || []).push(mm);
-    results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore, date: mm.date };
+    results[mm.id] = { finished: mm.finished, h: mm.homeScore, a: mm.awayScore, date: mm.date, adv: mm.adv || null };
   }
   for (const d in byDate) byDate[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   const changed = !_all || JSON.stringify(results) !== JSON.stringify(_all.results);

@@ -97,7 +97,7 @@ async function getScoreboard() {
     const mp = mpBy[id] || {};
     for (const [mid, pred] of Object.entries(mp)) {
       const r = matchResults[mid];
-      if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a, r.date);
+      if (r && r.finished) dailyPts += scoreMatch(pred, r.h, r.a, r.date, r.adv);
     }
     const brPts = scoreBracket(bpBy[id] || {}, brWinners).points;
     const completed = Object.values(picks).filter((o) => Array.isArray(o) && o.length === 4).length;
@@ -217,7 +217,7 @@ router.get(
         homeFlag: m.homeFlag, awayFlag: m.awayFlag, date: m.date, time: m.time, finished: fin,
         knockout: !!m.knockout, // хэсгийн шат / хасагдах шат ялгах
         pick, homeScore: fin ? r.h : null, awayScore: fin ? r.a : null,
-        points: fin ? scoreMatch(pick, r.h, r.a, m.date) : null,
+        points: fin ? scoreMatch(pick, r.h, r.a, m.date, r.adv) : null,
       });
     }
     matches.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));

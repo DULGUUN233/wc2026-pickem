@@ -98,7 +98,7 @@ export async function runTick() {
       for (const [pid, usionId] of users) {
         const pred = mpById.get(pid)?.[m.id];
         if (!pred) continue;
-        const pt = scoreMatch(pred, r.h, r.a, m.date);
+        const pt = scoreMatch(pred, r.h, r.a, m.date, r.adv);
         if (pt < 1) continue;
         await notifyOnce(`result:${m.id}:${usionId}`, usionId, {
           title: 'Оноо нэмэгдлээ! 🎉',
