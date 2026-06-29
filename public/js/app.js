@@ -840,6 +840,7 @@ async function loadKnockout() {
 // ===== Хасагдах шатны bracket pickem (self-propagating) =====
 const KO_ORDER = ['R32', 'R16', 'QF', 'SF', 'F'];
 const KO_NAME = { R32: 'Round of 32', R16: '1/8 финал', QF: '1/4 финал', SF: 'Хагас финал', F: 'Финал' };
+const KO_TAB = { R32: 'Шөвгийн 32', R16: 'Шөвгийн 16', QF: 'Шөвгийн 8', SF: 'Шөвгийн 4', F: 'Финал' };
 const KO_PREV = { R16: 'R32', QF: 'R16', SF: 'QF', F: 'SF' };
 // Модны навчны дараалал — холбоос шугам цэвэрхэн (хос бүр зэрэгцэн орохоор) эрэмбэлнэ.
 function bracketVisualOrder(tree) {
@@ -902,9 +903,11 @@ function renderBracket(wrap) {
   let html = '';
   if (!b.ready) html += `<div class="br-closed">🔒 Хасагдах шатны таамаг <b>групп шат дуусахад</b> нээгдэнэ.<br><span class="muted">32 баг тодрох үед энд bracket-ээ дээрээс доош бөглөнө.</span></div>`;
   html += `<div class="br-bar"><span>Bracket таамаг</span>${b.locked ? '<span class="br-lock">🔒 хаагдсан</span>' : (b.ready ? '<span class="muted">ялагчаа дар</span>' : '<span class="muted">урьдчилан харах</span>')}<span class="br-pts">${b.points || 0} оноо</span></div>`;
+  // Раунд таб — дарвал тухайн баганад гүйж очно (huvaari маягийн swipe)
+  html += `<div class="br-rounds">` + KO_ORDER.map((rk, i) => `<button class="br-rtab${i === 0 ? ' on' : ''}" data-go="${rk}">${KO_TAB[rk]}</button>`).join('') + `</div>`;
   html += '<div class="br-tree">';
   KO_ORDER.forEach((rk, ci) => {
-    html += `<div class="br-col col-${rk}${ci === 0 ? ' first' : ''}"><div class="br-col-h">${KO_NAME[rk]}</div><div class="br-col-body">`;
+    html += `<div class="br-col col-${rk}${ci === 0 ? ' first' : ''}" data-round="${rk}"><div class="br-col-h">${KO_NAME[rk]}</div><div class="br-col-body">`;
     for (const slot of vo[rk]) {
       const [a, c] = brCands(rk, slot), win = p[`${rk}-${slot}`];
       const rs = rk === 'R32' ? (b.r32[slot - 1] || {}) : {};
@@ -921,6 +924,31 @@ function renderBracket(wrap) {
   html += '</div>';
   wrap.innerHTML = html;
   wrap.querySelectorAll('.br-team:not([disabled])').forEach((btn) => btn.addEventListener('click', () => brPick(btn.dataset.pick, btn.dataset.team)));
+  brWireRounds(wrap);
+}
+// Раунд таб ↔ хэвтээ swipe: таб дарвал баганад гүйнэ; гүйлгэхэд идэвхтэй таб тодорно
+function brWireRounds(wrap) {
+  const tree = wrap.querySelector('.br-tree');
+  const tabs = [...wrap.querySelectorAll('.br-rtab')];
+  if (!tree || !tabs.length) return;
+  const colOf = (rk) => tree.querySelector(`.br-col[data-round="${rk}"]`);
+  tabs.forEach((t) => t.addEventListener('click', () => {
+    const col = colOf(t.dataset.go); if (!col) return;
+    const left = tree.scrollLeft + col.getBoundingClientRect().left - tree.getBoundingClientRect().left - 8;
+    try { tree.scrollTo({ left, behavior: 'smooth' }); } catch {}
+    tree.scrollLeft = left; // smooth дэмжихгүй орчинд найдвартай
+    tabs.forEach((x) => x.classList.toggle('on', x === t));
+  }));
+  let raf;
+  tree.addEventListener('scroll', () => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const edge = tree.getBoundingClientRect().left + tree.clientWidth * 0.25;
+      let active = KO_ORDER[0];
+      for (const rk of KO_ORDER) { const c = colOf(rk); if (c && c.getBoundingClientRect().left <= edge) active = rk; }
+      tabs.forEach((t) => t.classList.toggle('on', t.dataset.go === active));
+    });
+  }, { passive: true });
 }
 
 function renderKnockout(wrap, rounds) {
