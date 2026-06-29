@@ -274,6 +274,10 @@ img{display:block}
 .pv-more-btn{display:block;width:100%;margin:10px 0 2px;padding:10px;background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius-sm);color:#A5B4FC;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;letter-spacing:.01em}
 .pv-more-btn:active{transform:scale(.99)}
+/* Профайл — хасагдах шат (bracket) таамаг */
+.pv-grp-c{color:var(--text-3);font-weight:700;font-size:11px}
+.pv-gt.no{color:#EF4444}
+.pv-locked{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 13px;color:var(--text-3);font-size:12.5px;font-weight:600}
 .brow .who .det{font-size:11.5px;color:var(--text-2);margin-top:1px}
 .brow .pts{font-weight:900;font-size:19px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
 .brow .pts small{display:block;font-size:10px;color:var(--text-3);font-weight:700;letter-spacing:.04em}

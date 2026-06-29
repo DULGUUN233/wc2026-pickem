@@ -193,13 +193,15 @@ router.get(
     try { player = await collections.players().findOne({ _id: new ObjectId(req.params.id) }); } catch {}
     if (!player) throw new HttpError(404, 'Тоглогч олдсонгүй');
     const pid = String(player._id);
-    const [mpDoc, pickDoc, results, allMs, groupResults, sb] = await Promise.all([
+    const [mpDoc, pickDoc, results, allMs, groupResults, sb, bpDoc, bracket] = await Promise.all([
       collections.matchPicks().findOne({ playerId: pid }),
       collections.picks().findOne({ playerId: pid }),
       fetchAllResults(),
       allMatches(),
       resultsMap(),
       getScoreboard(),
+      collections.bracketPicks().findOne({ playerId: pid }),
+      bracketForPlayer(player),
     ]);
     const mById = {};
     for (const m of allMs) mById[m.id] = m;
@@ -238,12 +240,18 @@ router.get(
     const globalRows = rerank(Object.values(sb.byId));
     const globalRank = globalRows.find((r) => r.playerId === pid)?.rank || null;
 
+    // Хасагдах шатны bracket таамаг — хүн бүрт, цаг хамаарахгүй ил (групп/өдрийн таамагтай адил)
+    const bracketOut = bracket?.ready
+      ? { ready: true, points: scoreBracket(bpDoc?.picks || {}, bracket.winners || {}).points, winners: bracket.winners || {}, picks: bpDoc?.picks || {} }
+      : { ready: false };
+
     res.json({
       player: { id: pid, nickname: player.nickname, avatar: player.avatar || null, total: sb.byId[pid]?.total || 0 },
       global: { rank: globalRank, total: globalRows.length },
       leagues,
       matches,
       groups,
+      bracket: bracketOut,
     });
   })
 );

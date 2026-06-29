@@ -730,7 +730,35 @@ function renderProfile(body, data) {
       html += `<button class="pv-more-btn" data-more="pvGroupMore" data-label="${lbl}">${lbl}</button>`;
     }
   }
+
+  // Хасагдах шат — бүх bracket сонголт раунд бүрээр (хүн бүрт ил)
+  const br = data.bracket;
+  if (br?.ready) {
+    html += `<div class="pv-sec">Хасагдах шат таамаг${br.points ? ` <span class="gpts">+${br.points}</span>` : ''}</div>`;
+    html += brProfileFull(br);
+  }
   body.innerHTML = html;
+}
+// Профайл дээрх bracket таамаг — раунд бүрээр ялна гэж сонгосон БҮХ багууд
+function brProfileFull(br) {
+  const p = br.picks || {}, win = br.winners || {};
+  const chip = (id, key) => {
+    const t = bteam(id);
+    const ok = win[key] ? win[key] === id : null; // бодит ялагч тодорсон бол ✓/✗
+    const flag = t && t.code ? `<img class="pv-flag" src="${flagSrc(t.code)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    return `<span class="pv-gt ${ok === true ? 'ok' : ok === false ? 'no' : ''}">${flag}${(t && (t.abbr || t.name)) || id}${ok === true ? ' ✓' : ''}</span>`;
+  };
+  const rounds = [
+    ['R32', 'Round of 32', 16], ['R16', '1/8 финал', 8], ['QF', '1/4 финал', 4],
+    ['SF', 'Хагас финал', 2], ['F', '🏆 Аварга (финал)', 1], ['3P', '🥉 3-р байр', 1],
+  ];
+  let h = '';
+  for (const [key, name, n] of rounds) {
+    const chips = [];
+    for (let i = 1; i <= n; i++) { const id = p[`${key}-${i}`]; if (id) chips.push(chip(id, `${key}-${i}`)); }
+    if (chips.length) h += `<div class="pv-grp"><div class="pv-grp-hd">${name} <span class="pv-grp-c">${chips.length}/${n}</span></div><div>${chips.join('')}</div></div>`;
+  }
+  return h || '<div class="pv-locked">Bracket таамаг өгөөгүй байна.</div>';
 }
 
 // Өдрийн оноо — area+line график (SVG)
