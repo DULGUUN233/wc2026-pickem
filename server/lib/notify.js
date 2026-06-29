@@ -44,14 +44,15 @@ async function sendNotify(userId, { title, body, path }) {
 }
 
 // Dedupe: key-г эхлээд "эзэмшээд" дараа нь явуулна. Аль хэдийн байвал алгасна.
+// Илгээвэл true, давхар (алгассан) бол false буцаана.
 async function notifyOnce(key, userId, payload) {
   try {
     await collections.notifications().insertOne({ key, sentAt: new Date() });
   } catch (e) {
-    if (e?.code === 11000) return; // аль хэдийн явуулсан
+    if (e?.code === 11000) return false; // аль хэдийн явуулсан
     throw e;
   }
-  await sendNotify(userId, payload);
+  return await sendNotify(userId, payload);
 }
 
 export async function runTick() {
@@ -129,14 +130,17 @@ export async function runTick() {
       const bpById = new Map(bp.map((d) => [d.playerId, d.picks || {}]));
       const FULL = 16 + BRACKET_TREE.R16.length + BRACKET_TREE.QF.length + BRACKET_TREE.SF.length + BRACKET_TREE.F.length; // 31
       const bucket = Math.floor(now / H); // 1 цагийн период
+      let sent = 0;
       for (const [pid, usionId] of users) {
         if (Object.keys(bpById.get(pid) || {}).length >= FULL) continue; // bracket бүрэн → алгасна
-        await notifyOnce(`bracket:${bucket}:${usionId}`, usionId, {
+        const ok = await notifyOnce(`bracket:${bucket}:${usionId}`, usionId, {
           title: 'Хасагдах шатын bracket 🏆',
           body: 'Bracket таамгаа дуусга! Өнөө шөнө дунд (00:00) хаагдана.',
           path: '/',
         });
+        if (ok) sent++;
       }
+      if (sent) console.log(`📨 bracket сануулга → ${sent} хэрэглэгчид явуулав`);
     }
   } catch (e) {
     console.error('notify tick алдаа:', e);
