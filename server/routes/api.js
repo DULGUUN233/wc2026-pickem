@@ -369,7 +369,10 @@ router.put(
       if (!open(byId[mid])) continue; // эхэлсэн / 2 өдрөөс хол тоглолтыг хүлээж авахгүй
       const h = Number(p.h), a = Number(p.a);
       if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0 || h > 30 || a > 30) continue;
-      next[mid] = { h, a };
+      const e = { h, a };
+      // Хасагдах шат + тэнцээ → дэвшигчийн сонголт ('h'|'a')
+      if (byId[mid]?.knockout && h === a && (p.adv === 'h' || p.adv === 'a')) e.adv = p.adv;
+      next[mid] = e;
     }
     await collections.matchPicks().updateOne(
       { playerId: String(player._id) },

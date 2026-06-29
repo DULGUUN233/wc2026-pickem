@@ -45,17 +45,20 @@ const exactPoints = (date) => (date && date >= EXACT_BONUS_FROM ? MATCH_EXACT_NE
  * @param {number} h бодит гэрийн оноо
  * @param {number} a бодит зочны оноо
  * @param {string} [date] тоглолтын огноо (YYYY-MM-DD). EXACT_BONUS_FROM-аас хойш бол яг таамаг 3 оноо.
- * @param {'h'|'a'} [adv] хасагдах шат пенальти/нэмэлт цагаар шийдэгдсэн бол ДЭВШСЭН тал
- *   (90/120 мин тэнцээ үед). Тухайн багийг ялна гэж таасан бол outcome оноо өгнө.
+ * @param {'h'|'a'} [adv] ХАСАГДАХ ШАТ-ын бодит ДЭВШСЭН тал (нэмэлт цаг/пенальти оруулаад).
+ *   Тохируулсан бол үр дүнг ялагч/тэнцээгээр биш ДЭВШСЭН багаар тооцно — таамагт тэнцээ
+ *   орвол pred.adv (хэрэглэгчийн дэвшигчийн сонголт)-той тулгана.
  */
 export function scoreMatch(pred, h, a, date, adv) {
   if (!pred || pred.h == null || pred.a == null || h == null || a == null) return 0;
   if (pred.h === h && pred.a === a) return exactPoints(date); // яг дүн
   const ps = sign(pred.h, pred.a);
-  if (ps === sign(h, a)) return MATCH_OUTCOME; // ердийн үр дүн (тэнцээ ч мөн)
-  // Хасагдах шат: пенальти/нэмэлт цагаар дэвшсэн багийг ялна гэж таасан бол outcome
-  if (adv && ((adv === 'h' && ps > 0) || (adv === 'a' && ps < 0))) return MATCH_OUTCOME;
-  return 0;
+  if (adv) {
+    // Хасагдах шат: үр дүн = дэвшсэн баг. Ялалт таавал тэр тал; тэнцээ таавал нэмэлт сонголт.
+    const predAdv = ps > 0 ? 'h' : ps < 0 ? 'a' : (pred.adv || null);
+    return predAdv === adv ? MATCH_OUTCOME : 0;
+  }
+  return ps === sign(h, a) ? MATCH_OUTCOME : 0; // групп (тэнцээ ч мөн)
 }
 
 /**

@@ -38,13 +38,16 @@ function mapFD(m) {
   const overMs = (knockout ? 3 : 2.5) * 3600 * 1000;
   const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + overMs);
   const live = !finished && (m.status === 'IN_PLAY' || m.status === 'PAUSED');
-  // Хасагдах шат пенальти/нэмэлт цагаар шийдэгдсэн бол ДЭВШСЭН тал (90/120 мин тэнцээ үед)
+  // Хасагдах шат: ДЭВШСЭН тал (шийдвэртэй бол дүнгээр; тэнцээ бол пенальти/нэмэлт цагаар)
   let adv = null;
-  if (knockout && finished && hasScore && ft.home === ft.away) {
-    const pen = m.score?.penalties || {};
-    if (pen.home != null && pen.away != null) adv = pen.home > pen.away ? 'h' : 'a';
-    else if (m.score?.winner === 'HOME_TEAM') adv = 'h';
-    else if (m.score?.winner === 'AWAY_TEAM') adv = 'a';
+  if (knockout && finished && hasScore) {
+    if (ft.home !== ft.away) adv = ft.home > ft.away ? 'h' : 'a';
+    else {
+      const pen = m.score?.penalties || {};
+      if (pen.home != null && pen.away != null) adv = pen.home > pen.away ? 'h' : 'a';
+      else if (m.score?.winner === 'HOME_TEAM') adv = 'h';
+      else if (m.score?.winner === 'AWAY_TEAM') adv = 'a';
+    }
   }
   return {
     id: String(m.id),
@@ -130,7 +133,7 @@ async function refreshAll() {
         mm.status = 'FT';
         mm.homeScore = e.h;
         mm.awayScore = e.a;
-        if (mm.knockout && e.h === e.a) mm.adv = e.adv ?? null; // пен/нэмэлт цагаар дэвшсэн тал
+        if (mm.knockout) mm.adv = e.adv ?? (e.h > e.a ? 'h' : e.h < e.a ? 'a' : null); // дэвшсэн тал
       }
     }
   }

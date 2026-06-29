@@ -306,11 +306,13 @@ function canPredict(m) {
   return /^(ns|not started|tbd|sched|scheduled|)$/i.test((m.status || '').trim());
 }
 const EXACT_BONUS_FROM = '2026-06-20'; // backend-тэй ижил: энэ өдрөөс яг таамаг 3 оноо (06-19 ба өмнөх нь 2)
-function scoreMatchClient(p, h, a, date) {
+function scoreMatchClient(p, h, a, date, adv) {
   if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
   if (p.h === h && p.a === a) return date && date >= EXACT_BONUS_FROM ? 3 : 2;
   const sg = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
-  return sg(p.h, p.a) === sg(h, a) ? 1 : 0;
+  const ps = sg(p.h, p.a);
+  if (adv) { const pa = ps > 0 ? 'h' : ps < 0 ? 'a' : (p.adv || null); return pa === adv ? 1 : 0; }
+  return ps === sg(h, a) ? 1 : 0;
 }
 
 async function loadDaily(date) {
@@ -354,6 +356,34 @@ function stepperHtml(side, val) {
   return `<div class="stepper"><span class="val" data-side="${side}">${val == null ? '?' : val}</span><div class="sbtns"><button data-side="${side}" data-delta="-1">−</button><button data-side="${side}" data-delta="1">+</button></div></div>`;
 }
 
+// Таамаг бүрэн үү (хадгалж болох уу): дүн тоо + knockout тэнцээ бол дэвшигч сонгосон байх ёстой
+function mpComplete(m, pick) {
+  if (typeof pick?.h !== 'number' || typeof pick?.a !== 'number') return false;
+  if (m.knockout && pick.h === pick.a && pick.adv !== 'h' && pick.adv !== 'a') return false;
+  return true;
+}
+function mpDirty(pick, saved) {
+  return (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null) || (pick?.adv ?? null) !== (saved?.adv ?? null);
+}
+// Хасагдах шат + таамаг тэнцээ үед: нэмэлт цаг/пенальтиар хэн дэвшихийг сонгох модуль
+function advModuleHtml(m, pick) {
+  if (!m.knockout || pick?.h == null || pick.h !== pick.a) return '';
+  const opt = (s, ab, fl) => `<button class="mc-adv-b${pick.adv === s ? ' sel' : ''}" data-adv="${s}">${flagImg(fl)}<span>${ab}</span></button>`;
+  return `<div class="mc-adv"><div class="mc-adv-q">Тэнцвэл нэмэлт цаг/пенальтиар хэн дэвших вэ?</div><div class="mc-adv-opts">${opt('h', m.homeAbbr || m.home, m.homeFlag)}${opt('a', m.awayAbbr || m.away, m.awayFlag)}</div></div>`;
+}
+function renderAdvWrap(card, m) {
+  let wrap = card.querySelector('.mc-adv-wrap');
+  const html = advModuleHtml(m, state.matchPicks[m.id]);
+  if (!html) { if (wrap) wrap.remove(); return; }
+  if (!wrap) { wrap = el('div', 'mc-adv-wrap'); const s = card.querySelector('.mc-save'); if (s) card.insertBefore(wrap, s); else card.appendChild(wrap); }
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.mc-adv-b').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); setAdv(m.id, b.dataset.adv); }));
+}
+function setAdv(id, side) {
+  state.matchPicks[id] = { ...(state.matchPicks[id] || {}), adv: side };
+  patchMatchCard(id);
+}
+
 function matchCard(m) {
   const card = el('div', 'mcard');
   const predictable = canPredict(m);
@@ -375,7 +405,7 @@ function matchCard(m) {
     <div class="mc-body">${home}${mid}${away}</div>`;
 
   if (m.finished && saved) {
-    const pt = scoreMatchClient(saved, m.homeScore, m.awayScore, m.date || state.dailyDate);
+    const pt = scoreMatchClient(saved, m.homeScore, m.awayScore, m.date || state.dailyDate, m.adv);
     card.classList.add(pt >= 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
     f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
@@ -398,11 +428,10 @@ function matchCard(m) {
     card.querySelectorAll('.stepper button').forEach((b) =>
       b.addEventListener('click', (e) => { e.stopPropagation(); stepScore(m.id, b.dataset.side, Number(b.dataset.delta)); })
     );
-    const dirty = (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null);
-    if (dirty) {
-      const complete = typeof pick?.h === 'number' && typeof pick?.a === 'number';
+    renderAdvWrap(card, m); // тэнцээ үед дэвшигч сонгох модуль
+    if (mpDirty(pick, saved)) {
       const f = el('div', 'mc-save');
-      f.innerHTML = `<button class="btn btn-accent mc-savebtn"${complete ? '' : ' disabled'}>Хадгалах</button>`;
+      f.innerHTML = `<button class="btn btn-accent mc-savebtn"${mpComplete(m, pick) ? '' : ' disabled'}>Хадгалах</button>`;
       f.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); saveMatch(m.id); });
       card.appendChild(f);
     }
@@ -415,23 +444,23 @@ function patchMatchCard(id) {
   const idx = state.dailyMatches.findIndex((x) => x.id === id);
   const card = $('#matches').children[idx];
   if (!card) return;
+  const m = state.dailyMatches[idx];
   const pick = state.matchPicks[id];
   const saved = state.matchPicksSaved[id];
   const hv = card.querySelector('.val[data-side="h"]');
   const av = card.querySelector('.val[data-side="a"]');
   if (hv) hv.textContent = pick?.h == null ? '?' : pick.h;
   if (av) av.textContent = pick?.a == null ? '?' : pick.a;
-  const dirty = (pick?.h ?? null) !== (saved?.h ?? null) || (pick?.a ?? null) !== (saved?.a ?? null);
+  renderAdvWrap(card, m); // тэнцээ болоход дэвшигч модуль гарч/алга болно
   let saveEl = card.querySelector('.mc-save');
-  if (dirty) {
-    const complete = typeof pick?.h === 'number' && typeof pick?.a === 'number';
+  if (mpDirty(pick, saved)) {
     if (!saveEl) {
       saveEl = el('div', 'mc-save');
       saveEl.innerHTML = `<button class="btn btn-accent mc-savebtn">Хадгалах</button>`;
       saveEl.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); saveMatch(id); });
       card.appendChild(saveEl);
     }
-    saveEl.querySelector('button').disabled = !complete;
+    saveEl.querySelector('button').disabled = !mpComplete(m, pick);
   } else if (saveEl) {
     saveEl.remove();
   }
@@ -443,16 +472,21 @@ function stepScore(id, side, delta) {
   const v = cur[side];
   if (delta > 0) cur[side] = v == null ? 0 : Math.min(20, v + 1); // + ? → 0
   else if (v != null) cur[side] = Math.max(0, v - 1);             // − ? → ? хэвээр; − 0 → 0
+  if (cur.h == null || cur.a == null || cur.h !== cur.a) delete cur.adv; // тэнцээ биш бол дэвшигч хэрэггүй
   state.matchPicks[id] = cur;
   patchMatchCard(id);
 }
 
 async function saveMatch(id) {
+  const idx = state.dailyMatches.findIndex((x) => x.id === id);
+  const m = state.dailyMatches[idx];
   const pick = state.matchPicks[id];
-  if (!pick || typeof pick.h !== 'number' || typeof pick.a !== 'number') return; // ?-тэй бол болохгүй
+  if (!m || !mpComplete(m, pick)) return; // дутуу (эсвэл тэнцээд дэвшигч сонгоогүй) бол болохгүй
+  const body = { h: pick.h, a: pick.a };
+  if (m.knockout && pick.h === pick.a && pick.adv) body.adv = pick.adv;
   try {
-    await api.saveMatchPicks({ [id]: { h: pick.h, a: pick.a } });
-    state.matchPicksSaved[id] = { h: pick.h, a: pick.a };
+    await api.saveMatchPicks({ [id]: body });
+    state.matchPicksSaved[id] = { ...body };
     patchMatchCard(id);
     successCheck();
   } catch (e) { toast(e.message, 'err'); }
