@@ -326,6 +326,9 @@ export const BRACKET_TREE = {
   SF: [[1, 2], [3, 4]],
   F: [[1, 2]],
 };
+// Bracket таамаг хаагдах хугацаа (override). Тохируулсан бол R32 эхэлсэн ч энэ хүртэл нээлттэй.
+// Анхдагч: 2026-06-30 00:00 Улаанбаатарын цаг (= 2026-06-29 16:00 UTC). ENV-ээр дарж болно.
+export const BRACKET_DEADLINE = Date.parse(process.env.BRACKET_DEADLINE || '2026-06-29T16:00:00Z') || 0;
 
 function koWinner(e) {
   if (e?.status?.type?.state !== 'post') return null; // дуусаагүй

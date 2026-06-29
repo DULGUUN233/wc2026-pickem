@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../db.js';
 import { GROUPS, GROUP_IDS, TOURNAMENT, FLAG_BASE, validateGroupOrder } from '../lib/groups.js';
 import { scorePicks, scoreMatch, scoreGroup, scoreBracket, POINTS_PER_EXACT, PERFECT_GROUP_BONUS } from '../lib/scoring.js';
-import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings, fetchBracket, bracketTestFill, BRACKET_TREE } from '../lib/matches.js';
+import { fetchMatches, fetchAllResults, allMatches, fetchKnockout, getResultsVersion, todayUlaanbaatar, fetchGroupStandings, fetchBracket, bracketTestFill, BRACKET_TREE, BRACKET_DEADLINE } from '../lib/matches.js';
 import {
   randomToken,
   leagueCode,
@@ -404,9 +404,10 @@ router.get(
     const player = await requirePlayer(req);
     const bracket = await bracketForPlayer(player);
     const mine = (await collections.bracketPicks().findOne({ playerId: String(player._id) }))?.picks || {};
-    const locked = !!bracket && bracket.startTs > 0 && Date.now() >= bracket.startTs;
+    const lockTs = BRACKET_DEADLINE || (bracket ? bracket.startTs : 0); // deadline override → R32 эхэлсэн ч нээлттэй
+    const locked = !!bracket && lockTs > 0 && Date.now() >= lockTs;
     res.json({
-      ready: !!bracket?.ready, locked, startTs: bracket?.startTs || 0,
+      ready: !!bracket?.ready, locked, startTs: bracket?.startTs || 0, deadline: BRACKET_DEADLINE || 0,
       r32: bracket?.r32 || [], winners: bracket?.winners || {}, meta: bracket?.meta || {}, tree: BRACKET_TREE,
       picks: mine, points: scoreBracket(mine, bracket?.winners || {}).points,
     });
@@ -419,7 +420,8 @@ router.put(
     const player = await requirePlayer(req);
     const bracket = await bracketForPlayer(player);
     if (!bracket?.ready) throw new HttpError(400, 'Хасагдах шат хараахан нээгдээгүй (групп шат дуусаагүй)');
-    if (bracket.startTs > 0 && Date.now() >= bracket.startTs) throw new HttpError(400, 'Хасагдах шат эхэлсэн — таамаг хаагдсан');
+    const lockTs = BRACKET_DEADLINE || bracket.startTs;
+    if (lockTs > 0 && Date.now() >= lockTs) throw new HttpError(400, 'Таамаг хаагдсан');
     const next = validBracketPicks(req.body?.picks, bracket);
     await collections.bracketPicks().updateOne(
       { playerId: String(player._id) },

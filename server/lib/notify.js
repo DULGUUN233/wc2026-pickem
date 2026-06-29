@@ -6,7 +6,7 @@
 // USION_API_URL / USION_SERVICE_ID / USION_NOTIFY_SECRET байхгүй бол чимээгүй идэвхгүй.
 import crypto from 'node:crypto';
 import { collections } from '../db.js';
-import { allMatches, fetchAllResults } from './matches.js';
+import { allMatches, fetchAllResults, BRACKET_DEADLINE, BRACKET_TREE } from './matches.js';
 import { scoreMatch } from './scoring.js';
 import { GROUP_IDS, TOURNAMENT } from './groups.js';
 
@@ -118,6 +118,22 @@ export async function runTick() {
         await notifyOnce(`group:${bucket}:${usionId}`, usionId, {
           title: 'Хэсгийн шатын таамаг 🏆',
           body: 'Хэсгийн шат удахгүй хаагдана. 12 группийнхээ pickem-ийг хийж амжаарай!',
+          path: '/',
+        });
+      }
+    }
+
+    // 4) Хасагдах шатны bracket — deadline хүртэл 1 ЦАГ тутам, дуусгаагүй хэрэглэгчдэд
+    if (BRACKET_DEADLINE && now < BRACKET_DEADLINE) {
+      const bp = await collections.bracketPicks().find({}).toArray();
+      const bpById = new Map(bp.map((d) => [d.playerId, d.picks || {}]));
+      const FULL = 16 + BRACKET_TREE.R16.length + BRACKET_TREE.QF.length + BRACKET_TREE.SF.length + BRACKET_TREE.F.length; // 31
+      const bucket = Math.floor(now / H); // 1 цагийн период
+      for (const [pid, usionId] of users) {
+        if (Object.keys(bpById.get(pid) || {}).length >= FULL) continue; // bracket бүрэн → алгасна
+        await notifyOnce(`bracket:${bucket}:${usionId}`, usionId, {
+          title: 'Хасагдах шатын bracket 🏆',
+          body: 'Bracket таамгаа дуусга! Өнөө шөнө дунд (00:00) хаагдана.',
           path: '/',
         });
       }
