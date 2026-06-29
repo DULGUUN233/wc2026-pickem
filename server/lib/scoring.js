@@ -34,6 +34,7 @@ export const MATCH_EXACT = 2; // яг дүн зөв (EXACT_BONUS_FROM-аас ө�
 export const MATCH_EXACT_NEW = 3; // яг дүн зөв (EXACT_BONUS_FROM-аас хойших тоглолт)
 export const EXACT_BONUS_FROM = '2026-06-20'; // энэ өдрөөс (оруулаад) яг таамаг 3 оноо. 06-19 ба өмнөх нь 2 хэвээр.
 export const MATCH_OUTCOME = 1; // үр дүн (ялагч/тэнцэх) зөв, дүн буруу
+export const PEN_ADVANCE_BONUS = 1; // хасагдах шат нэмэлт цаг/пенальтиар шийдэгдэхэд дэвшигчийг зөв таасан нэмэлт оноо
 
 const sign = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
 // Тоглолтын огноогоор яг таамгийн оноог буцаана (огноо YYYY-MM-DD).
@@ -51,13 +52,17 @@ const exactPoints = (date) => (date && date >= EXACT_BONUS_FROM ? MATCH_EXACT_NE
  */
 export function scoreMatch(pred, h, a, date, adv) {
   if (!pred || pred.h == null || pred.a == null || h == null || a == null) return 0;
-  if (pred.h === h && pred.a === a) return exactPoints(date); // яг дүн
+  const exact = pred.h === h && pred.a === a;
   const ps = sign(pred.h, pred.a);
   if (adv) {
-    // Хасагдах шат: үр дүн = дэвшсэн баг. Ялалт таавал тэр тал; тэнцээ таавал нэмэлт сонголт.
+    // Хасагдах шат: үр дүн = дэвшсэн баг (ялалт таавал тэр тал, тэнцээ таавал pred.adv)
     const predAdv = ps > 0 ? 'h' : ps < 0 ? 'a' : (pred.adv || null);
-    return predAdv === adv ? MATCH_OUTCOME : 0;
+    const advRight = predAdv === adv;
+    let pts = exact ? exactPoints(date) : (advRight ? MATCH_OUTCOME : 0);
+    if (advRight && h === a) pts += PEN_ADVANCE_BONUS; // нэмэлт цаг/пенээр шийдэгдсэн дэвшигчийг таасан → +1
+    return pts;
   }
+  if (exact) return exactPoints(date);
   return ps === sign(h, a) ? MATCH_OUTCOME : 0; // групп (тэнцээ ч мөн)
 }
 

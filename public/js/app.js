@@ -308,10 +308,18 @@ function canPredict(m) {
 const EXACT_BONUS_FROM = '2026-06-20'; // backend-тэй ижил: энэ өдрөөс яг таамаг 3 оноо (06-19 ба өмнөх нь 2)
 function scoreMatchClient(p, h, a, date, adv) {
   if (!p || p.h == null || p.a == null || h == null || a == null) return 0;
-  if (p.h === h && p.a === a) return date && date >= EXACT_BONUS_FROM ? 3 : 2;
+  const exact = p.h === h && p.a === a;
+  const exVal = date && date >= EXACT_BONUS_FROM ? 3 : 2;
   const sg = (x, y) => (x > y ? 1 : x < y ? -1 : 0);
   const ps = sg(p.h, p.a);
-  if (adv) { const pa = ps > 0 ? 'h' : ps < 0 ? 'a' : (p.adv || null); return pa === adv ? 1 : 0; }
+  if (adv) {
+    const pa = ps > 0 ? 'h' : ps < 0 ? 'a' : (p.adv || null);
+    const right = pa === adv;
+    let pts = exact ? exVal : (right ? 1 : 0);
+    if (right && h === a) pts += 1; // нэмэлт цаг/пенээр дэвшигчийг таасан бонус
+    return pts;
+  }
+  if (exact) return exVal;
   return ps === sg(h, a) ? 1 : 0;
 }
 
