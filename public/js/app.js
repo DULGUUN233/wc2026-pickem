@@ -910,17 +910,22 @@ function brPrune() {
   const tp = [brLoser(1), brLoser(2)].filter(Boolean); // SF өөрчлөгдвөл 3-р байр ч цэвэрлэгдэнэ
   if (p['3P-1'] && !tp.includes(p['3P-1'])) delete p['3P-1'];
 }
-let _brSaveT = null;
+let _brSaveT = null, _brGen = 0;
 function brPick(key, teamId) {
   if (!teamId || state.bracket.locked || !state.bracket.ready) return;
   if (state.bracketPicks[key] === teamId) return;
   state.bracketPicks[key] = teamId;
   brPrune();
   renderBracket($('#knockout'));
+  const gen = ++_brGen; // энэ өөрчлөлтийн дугаар — race-аас хамгаална
   clearTimeout(_brSaveT);
   _brSaveT = setTimeout(async () => {
-    try { const r = await api.saveBracket(state.bracketPicks); state.bracketPicks = { ...(r.picks || {}) }; } // чимээгүй хадгална
-    catch (e) { toast(e.message, 'err'); }
+    try {
+      const r = await api.saveBracket(state.bracketPicks);
+      // Хадгалах хооронд ШИНЭ сонголт хийгдээгүй бол л сервертэй тааруулна
+      // (хуучин хариу шинэ сонголтыг дарж устгахаас сэргийлнэ)
+      if (gen === _brGen) state.bracketPicks = { ...(r.picks || {}) };
+    } catch (e) { toast(e.message, 'err'); }
   }, 700);
 }
 // нэг багийн мөр (картан доторх) — дарж ялагчаа сонгоно. label = TBD үеийн группын байрны шошго (2F г.м.)
