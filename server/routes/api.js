@@ -395,6 +395,14 @@ function validBracketPicks(incoming, bracket) {
     if (cands.includes(pick)) { out[`${name}-${m}`] = pick; if (win[name]) win[name][m] = pick; }
   });
   round('R16', 'R32'); round('QF', 'R16'); round('SF', 'QF'); round('F', 'SF');
+  // 3-р байр: 2 хагас финалын ялагдагсдаас (SF слот тус бүрийн ялагдсан баг)
+  const sfLoser = (m) => {
+    const pair = BRACKET_TREE.SF[m - 1];
+    const cands = [win.QF[pair[0]], win.QF[pair[1]]].filter(Boolean);
+    return cands.find((c) => c !== win.SF[m]) || null;
+  };
+  const tpc = [sfLoser(1), sfLoser(2)].filter(Boolean);
+  if (incoming['3P-1'] && tpc.includes(incoming['3P-1'])) out['3P-1'] = incoming['3P-1'];
   return out;
 }
 

@@ -353,7 +353,7 @@ async function refreshBracket() {
   const round = (slug) => evs.filter((e) => e.season?.slug === slug).sort((a, b) => (+a.id) - (+b.id));
   const r32 = round('round-of-32');
   if (r32.length !== 16) return; // бүтэц бэлэн биш
-  const r16 = round('round-of-16'), qf = round('quarterfinals'), sf = round('semifinals'), fin = round('final');
+  const r16 = round('round-of-16'), qf = round('quarterfinals'), sf = round('semifinals'), tp = round('3rd-place-match'), fin = round('final');
 
   const cmp = (e, idx) => e.competitions?.[0]?.competitors?.[idx]?.team || {};
   const teamId = (e, idx) => codeOf(cmp(e, idx).displayName); // map хийгдвэл id, эс бол null
@@ -366,7 +366,7 @@ async function refreshBracket() {
     winners[`${key}-${i + 1}`] = koWinner(e);
     meta[`${key}-${i + 1}`] = { date: dateUB(e.date), time: hhmmUB(e.date) };
   });
-  fill(r32, 'R32'); fill(r16, 'R16'); fill(qf, 'QF'); fill(sf, 'SF'); fill(fin, 'F');
+  fill(r32, 'R32'); fill(r16, 'R16'); fill(qf, 'QF'); fill(sf, 'SF'); fill(tp, '3P'); fill(fin, 'F');
 
   const startTs = Math.min(...r32.map((e) => Date.parse(e?.date) || Infinity)); // R32 эхлэх (lock)
   _br = { at: Date.now(), ready, startTs: Number.isFinite(startTs) ? startTs : 0, r32: r32slots, winners, meta };

@@ -361,7 +361,7 @@ img{display:block}
 .br-rounds::-webkit-scrollbar{display:none}
 .br-rtab{flex:none;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);border-radius:99px;padding:6px 13px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
 .br-rtab.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.br-tree{display:flex;overflow-x:auto;gap:14px;padding-bottom:10px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scroll-padding-left:8px;--ln:rgba(255,255,255,.2)}
+.br-tree{display:flex;overflow-x:hidden;gap:14px;padding-bottom:10px;touch-action:pan-y;--ln:rgba(255,255,255,.2)}
 .br-col{flex:0 0 auto;width:150px;display:flex;flex-direction:column;position:relative;scroll-snap-align:start}
 .br-col-h{position:sticky;top:0;z-index:3;background:var(--bg);font-size:11px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em;padding:6px 2px 8px;text-align:center}
 .br-col-body{flex:1;display:flex;flex-direction:column}
@@ -393,6 +393,11 @@ img{display:block}
 /* раунд солих үед хуудас зөөлөн орж ирэх animation */
 .br-tree.br-slide{animation:br-slide-in .26s ease}
 @keyframes br-slide-in{from{opacity:.35;transform:translateX(16px)}to{opacity:1;transform:none}}
+/* 3-р байрын (хүрэл) тоглолт — модны доор */
+.br-third{margin-top:14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:12px;padding:10px 11px}
+.br-third-h{font-size:12px;font-weight:800;color:var(--text-2);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.br-third-h .br-when{font-weight:700}
+.br-third .br-card{width:auto;max-width:230px;background:var(--surface);border-color:var(--border)}
 
 /* ============================ BOTTOM NAV ============================ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;

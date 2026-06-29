@@ -859,8 +859,15 @@ function bteam(id) {
 // тухайн раунд-слотын 2 нэр дэвшигч (R32: бодит баг; цааш нь өмнөх раундын СОНГОСОН ялагчид)
 function brCands(round, slot) {
   if (round === 'R32') { const s = state.bracket.r32[slot - 1] || {}; return [s.a || null, s.b || null]; }
+  if (round === '3P') return [brLoser(1), brLoser(2)]; // 3-р байр = 2 хагас финалын ялагдагсад
   const pair = state.bracket.tree[round][slot - 1]; const prev = KO_PREV[round];
   return [state.bracketPicks[`${prev}-${pair[0]}`] || null, state.bracketPicks[`${prev}-${pair[1]}`] || null];
+}
+// Хагас финалын тухайн слотод ЯЛАГДСАН баг (сонгосон ялагч биш нөгөө нэр дэвшигч)
+function brLoser(sfSlot) {
+  const [c1, c2] = brCands('SF', sfSlot), w = state.bracketPicks[`SF-${sfSlot}`];
+  if (!w) return null;
+  return c1 && c1 !== w ? c1 : (c2 && c2 !== w ? c2 : null);
 }
 // сонголт өөрчлөгдөхөд буруу болсон доош сонголтуудыг цэвэрлэх (server-тэй ижил)
 function brPrune() {
@@ -872,6 +879,8 @@ function brPrune() {
       if (p[`${round}-${m}`] && !cands.includes(p[`${round}-${m}`])) delete p[`${round}-${m}`];
     });
   }
+  const tp = [brLoser(1), brLoser(2)].filter(Boolean); // SF өөрчлөгдвөл 3-р байр ч цэвэрлэгдэнэ
+  if (p['3P-1'] && !tp.includes(p['3P-1'])) delete p['3P-1'];
 }
 let _brSaveT = null;
 function brPick(key, teamId) {
@@ -882,7 +891,7 @@ function brPick(key, teamId) {
   renderBracket($('#knockout'));
   clearTimeout(_brSaveT);
   _brSaveT = setTimeout(async () => {
-    try { const r = await api.saveBracket(state.bracketPicks); state.bracketPicks = { ...(r.picks || {}) }; toast('Bracket хадгалагдлаа ✓', 'ok'); }
+    try { const r = await api.saveBracket(state.bracketPicks); state.bracketPicks = { ...(r.picks || {}) }; } // чимээгүй хадгална
     catch (e) { toast(e.message, 'err'); }
   }, 700);
 }
@@ -934,6 +943,13 @@ function renderBracket(wrap) {
     html += `<div class="br-col champ"><div class="br-col-h">🏆 Аварга</div><div class="br-col-body"><div class="br-champ-card">${champ ? `${champ.code ? `<img class="br-flag" src="${flagSrc(champ.code)}" onerror="this.remove()">` : ''}<b>${champ.abbr || champ.name}</b>` : '—'}</div></div></div>`;
   }
   html += '</div>';
+  if (showChamp) { // 3-р байрын тоглолт — финал/аваргатай нэг хуудсанд
+    const [l1, l2] = brCands('3P', 1), w3 = p['3P-1'];
+    const m3 = b.meta && b.meta['3P-1'];
+    const when3 = m3 && m3.date ? `${+m3.date.slice(5, 7)}/${+m3.date.slice(8, 10)} ${m3.time}` : '';
+    html += `<div class="br-third"><div class="br-third-h">🥉 3-р байрын тоглолт${when3 ? ` <span class="br-when">${when3}</span>` : ''}</div>`
+      + `<div class="br-card">` + brTeamRow('3P', 1, l1, !!l1 && w3 === l1) + brTeamRow('3P', 1, l2, !!l2 && w3 === l2) + `</div></div>`;
+  }
   wrap.innerHTML = html;
   const tree = wrap.querySelector('.br-tree');
   if (tree) { tree.scrollLeft = prevScroll; if (navigated) tree.classList.add('br-slide'); }
@@ -945,11 +961,20 @@ function brWireRounds(wrap) {
   const tabs = [...wrap.querySelectorAll('.br-rtab')];
   const arrows = [...wrap.querySelectorAll('.br-arrow')];
   const setBase = (rk) => { if (!KO_ORDER.includes(rk) || rk === state.brBase) return; state.brBase = rk; renderBracket(wrap); };
+  const step = (dir) => setBase(KO_ORDER[Math.max(0, Math.min(KO_ORDER.length - 1, KO_ORDER.indexOf(state.brBase) + dir))]);
   tabs.forEach((t) => t.addEventListener('click', () => setBase(t.dataset.go)));
-  arrows.forEach((a) => a.addEventListener('click', () => {
-    const i = KO_ORDER.indexOf(state.brBase) + (a.dataset.arrow === '1' ? 1 : -1);
-    setBase(KO_ORDER[Math.max(0, Math.min(KO_ORDER.length - 1, i))]);
-  }));
+  arrows.forEach((a) => a.addEventListener('click', () => step(a.dataset.arrow === '1' ? 1 : -1)));
+  // Хуруугаар хажуу шудрах (swipe) → раунд солих. Босоо гүйлтэд саад болохгүй.
+  const tree = wrap.querySelector('.br-tree');
+  if (tree) {
+    let sx = 0, sy = 0, on = false;
+    tree.addEventListener('touchstart', (e) => { if (e.touches.length === 1) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; on = true; } }, { passive: true });
+    tree.addEventListener('touchend', (e) => {
+      if (!on) return; on = false;
+      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) step(dx < 0 ? 1 : -1); // зүүн→дараах, баруун→өмнөх
+    }, { passive: true });
+  }
   // идэвхтэй табыг таб мөрний төвд харуулна
   const rounds = wrap.querySelector('.br-rounds'), onTab = wrap.querySelector('.br-rtab.on');
   if (rounds && onTab) rounds.scrollLeft = onTab.offsetLeft - rounds.clientWidth / 2 + onTab.clientWidth / 2;
