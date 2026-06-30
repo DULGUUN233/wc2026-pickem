@@ -28,26 +28,28 @@ const dateUB = (iso) => new Date(new Date(iso).getTime() + 8 * 3600 * 1000).toIS
 
 /* ---- football-data.org: бүх WC матчийг нэг дуудлагаар, огноогоор бүлэглэж cache ---- */
 function mapFD(m) {
-  const ft = m.score?.fullTime || {};
+  const sc = m.score || {};
+  const ft = sc.fullTime || {}, reg = sc.regularTime || {}, et = sc.extraTime || {}, pen = sc.penalties || {};
   const ts = Date.parse(m.utcDate) || 0; // эхлэх цаг (epoch ms)
-  const hasScore = ft.home != null && ft.away != null;
+  const knockout = m.stage && m.stage !== 'GROUP_STAGE';
+  // ⚽ 90/120 МИН-ИЙН ДҮН (пенальти ОРОЛЦУУЛАХГҮЙ). football-data-ийн fullTime нь пенальтийг
+  // нэмчихдэг (1:1 → 4:5) тул нэмэлт цаг/пенальтиар шийдэгдсэн матчид үндсэн+нэмэлт цагийг авна.
+  const etOrPen = reg.home != null && (et.home != null || pen.home != null || sc.duration === 'EXTRA_TIME' || sc.duration === 'PENALTY_SHOOTOUT');
+  const H = etOrPen ? (reg.home || 0) + (et.home || 0) : ft.home;
+  const A = etOrPen ? (reg.away || 0) + (et.away || 0) : ft.away;
+  const hasScore = H != null && A != null;
   // football-data заримдаа дууссан матчийг IN_PLAY-д ГАЦААДАГ. Тиймээс status FINISHED,
   // ЭСВЭЛ дүнтэй бөгөөд тоглолт дуусах хугацаа өнгөрсөн бол дууссан гэж үзнэ.
-  // Групп шат нэмэлт цаггүй (2ц30м), хожлын тор нэмэлт цаг/пенальтитай (3ц).
-  const knockout = m.stage && m.stage !== 'GROUP_STAGE';
   const overMs = (knockout ? 3 : 2.5) * 3600 * 1000;
   const finished = m.status === 'FINISHED' || (hasScore && ts > 0 && Date.now() >= ts + overMs);
   const live = !finished && (m.status === 'IN_PLAY' || m.status === 'PAUSED');
-  // Хасагдах шат: ДЭВШСЭН тал (шийдвэртэй бол дүнгээр; тэнцээ бол пенальти/нэмэлт цагаар)
+  // Хасагдах шат: ДЭВШСЭН тал (пенальти → winner → үндсэн дүн)
   let adv = null;
   if (knockout && finished && hasScore) {
-    if (ft.home !== ft.away) adv = ft.home > ft.away ? 'h' : 'a';
-    else {
-      const pen = m.score?.penalties || {};
-      if (pen.home != null && pen.away != null) adv = pen.home > pen.away ? 'h' : 'a';
-      else if (m.score?.winner === 'HOME_TEAM') adv = 'h';
-      else if (m.score?.winner === 'AWAY_TEAM') adv = 'a';
-    }
+    if (pen.home != null && pen.home !== pen.away) adv = pen.home > pen.away ? 'h' : 'a';
+    else if (sc.winner === 'HOME_TEAM') adv = 'h';
+    else if (sc.winner === 'AWAY_TEAM') adv = 'a';
+    else if (H !== A) adv = H > A ? 'h' : 'a';
   }
   return {
     id: String(m.id),
@@ -63,9 +65,11 @@ function mapFD(m) {
     status: finished ? 'FT' : live ? 'LIVE' : 'NS',
     finished,
     knockout: !!knockout, // GROUP_STAGE биш бол хасагдах шат
-    homeScore: finished ? num(ft.home) : null,
-    awayScore: finished ? num(ft.away) : null,
+    homeScore: finished ? num(H) : null,
+    awayScore: finished ? num(A) : null,
     adv,
+    penH: finished && pen.home != null ? num(pen.home) : null, // пенальтиар шийдэгдсэн бол
+    penA: finished && pen.away != null ? num(pen.away) : null,
   };
 }
 

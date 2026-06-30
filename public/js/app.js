@@ -412,12 +412,12 @@ function matchCard(m) {
     const pt = scoreMatchClient(saved, m.homeScore, m.awayScore, m.date || state.dailyDate, m.adv);
     card.classList.add(pt >= 2 ? 'res-exact' : pt === 1 ? 'res-out' : 'res-miss');
     const f = el('div', 'mc-pred');
-    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b> <span class="mc-pts p${pt}">+${pt}</span>`;
+    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b>${m.penH != null ? ` <span class="mc-pen">пен ${m.penH}:${m.penA}</span>` : ''} <span class="mc-pts p${pt}">+${pt}</span>`;
     card.appendChild(f);
   } else if (m.finished) {
     // Таамаглаагүй дууссан: дүнг бусад картын адил доор нь (онооны badge-гүй)
     const f = el('div', 'mc-pred');
-    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b>`;
+    f.innerHTML = `Тоглолтын дүн <b>${m.homeScore}:${m.awayScore}</b>${m.penH != null ? ` <span class="mc-pen">пен ${m.penH}:${m.penA}</span>` : ''}`;
     card.appendChild(f);
   }
   if (future) {
@@ -727,7 +727,7 @@ function renderProfile(body, data) {
   if (data.matches.length) {
     const fl = (s) => (s ? `<img class="pv-flag" src="${s}" alt="" loading="lazy" onerror="this.remove()">` : '');
     const mRow = (m) => {
-      const res = m.finished ? `${m.homeScore}:${m.awayScore}` : m.time;
+      const res = m.finished ? `${m.homeScore}:${m.awayScore}${m.penH != null ? ` (пен ${m.penH}:${m.penA})` : ''}` : m.time;
       const pts = m.finished ? `<span class="mc-pts p${m.points}">+${m.points}</span>` : '';
       return `<div class="pv-row">
         <span class="pv-mt">${fl(m.homeFlag)}${m.homeAbbr} <b>${m.pick.h}:${m.pick.a}</b> ${m.awayAbbr}${fl(m.awayFlag)}</span>
