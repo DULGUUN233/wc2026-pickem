@@ -99,9 +99,11 @@ async function fetchEspnFinished() {
       const away = cs.find((c) => c.homeAway === 'away');
       if (!home || !away) continue;
       map.set(matchKey(home.team?.displayName, away.team?.displayName, dateUB(e.date)), {
-        h: num(home.score),
+        h: num(home.score), // ESPN-ийн score = үндсэн/нэмэлт цаг (пенальти ОРОЛЦУУЛАХГҮЙ)
         a: num(away.score),
         adv: home.winner ? 'h' : away.winner ? 'a' : null, // дэвшсэн тал (пен/нэмэлт цаг)
+        penH: home.shootoutScore != null ? num(home.shootoutScore) : null, // пенальтийн дүн
+        penA: away.shootoutScore != null ? num(away.shootoutScore) : null,
       });
     }
     return map;
@@ -130,14 +132,19 @@ async function refreshAll() {
   const espn = await fetchEspnFinished();
   if (espn) {
     for (const mm of fdMatches) {
-      if (mm.finished) continue;
       const e = espn.get(matchKey(mm.home, mm.away, mm.date));
-      if (e && e.h != null && e.a != null) {
+      if (!e) continue;
+      // football-data дуусгаагүй бол ESPN-ийн дүнгээр нөхнө
+      if (!mm.finished && e.h != null && e.a != null) {
         mm.finished = true;
         mm.status = 'FT';
         mm.homeScore = e.h;
         mm.awayScore = e.a;
-        if (mm.knockout) mm.adv = e.adv ?? (e.h > e.a ? 'h' : e.h < e.a ? 'a' : null); // дэвшсэн тал
+      }
+      // Хасагдах шат: ДЭВШИГЧ ба ПЕНАЛЬТИЙГ ESPN-ээс авна (football-data-ийн пен найдваргүй) — дууссан ч
+      if (mm.knockout && mm.finished) {
+        if (e.adv) mm.adv = e.adv;
+        if (e.penH != null) { mm.penH = e.penH; mm.penA = e.penA; }
       }
     }
   }
